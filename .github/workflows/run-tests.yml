@@ -22,6 +22,10 @@ concurrency:
 
 jobs:
   test:
+    env:
+      APP_ENV: testing
+      OPENAI_API_KEY: sk-test
+      MEILISEARCH_HOST: http://localhost:7700
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     strategy:

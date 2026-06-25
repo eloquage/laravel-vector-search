@@ -50,7 +50,7 @@ class LaravelVectorSearchServiceProvider extends PackageServiceProvider
             $this->app->make(EmbeddingProviderManager::class),
         );
 
-        if (! $this->app->runningUnitTests()) {
+        if (! $this->app->runningUnitTests() && ! $this->app->environment('testing')) {
             $this->app->make(VectorSearchConfigValidator::class)->validate();
         }
 
