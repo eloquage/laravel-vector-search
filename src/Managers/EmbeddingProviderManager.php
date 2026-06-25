@@ -29,6 +29,7 @@ class EmbeddingProviderManager extends Manager
             EmbeddingProvider::OPENAI->value => filled(config('vector-search.embedding_providers.openai.api_key')),
             EmbeddingProvider::OLLAMA->value => filled(config('vector-search.embedding_providers.ollama.host')),
             EmbeddingProvider::COHERE->value => filled(config('vector-search.embedding_providers.cohere.api_key')),
+            'laravel-ai' => true,
             default => false,
         };
     }
