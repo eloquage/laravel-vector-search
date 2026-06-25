@@ -13,10 +13,28 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class LaravelVectorSearch
 {
+    /** @var array<int, callable(VectorDriverManager, EmbeddingProviderManager): void> */
+    protected static array $configurators = [];
+
     public function __construct(
         protected EmbeddingProviderManager $embeddings,
         protected VectorDriverManager $drivers,
     ) {}
+
+    /**
+     * @param  callable(VectorDriverManager, EmbeddingProviderManager): void  $configurator
+     */
+    public static function configure(callable $configurator): void
+    {
+        static::$configurators[] = $configurator;
+    }
+
+    public static function runConfigurators(VectorDriverManager $drivers, EmbeddingProviderManager $embeddings): void
+    {
+        foreach (static::$configurators as $configurator) {
+            $configurator($drivers, $embeddings);
+        }
+    }
 
     public function forIndex(string|VectorIndex $index): VectorSearchIndex
     {

@@ -181,6 +181,10 @@ class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
 
         return VectorChunk::query()
             ->whereIn('id', $ids)
+            ->whereHas('vectorDocument', function ($query): void {
+                $query->whereNull('deleted_at')
+                    ->whereHas('vectorIndex', fn ($indexQuery) => $indexQuery->whereNull('deleted_at'));
+            })
             ->get()
             ->sortBy(function (VectorChunk $chunk) use ($ids): int {
                 $position = array_search($chunk->id, $ids, true);

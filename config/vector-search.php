@@ -41,6 +41,10 @@ return [
         'default_index' => env('VECTOR_SEARCH_SCOUT_INDEX'),
     ],
 
+    'index_defaults' => [
+        'dimensions' => (int) env('VECTOR_SEARCH_INDEX_DIMENSIONS', 1536),
+    ],
+
     'testing' => [
         'embedding_dimensions' => 8,
     ],

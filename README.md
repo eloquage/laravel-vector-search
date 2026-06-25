@@ -153,7 +153,7 @@ VectorIndex::query()->create([
 | Null (testing) | `null`   | Implemented — deterministic fake vectors |
 | Cohere         | `cohere` | Not implemented                          |
 
-Each index stores `embedding_provider`, `embedding_model`, and optional `dimensions`. At search time, `EmbeddingProviderManager::forIndex()` resolves the correct provider and model for that index.
+Each index stores `embedding_provider`, `embedding_model`, and optional `dimensions`. At search time, `VectorSearchIndex` resolves the embedder from the index's `embedding_provider` value.
 
 ## Indexing: queued vs sync
 
@@ -335,6 +335,8 @@ class Article extends Model
 ```
 
 On save/delete, the trait syncs a `VectorDocument` and queues `ProcessVectorDocument`. Scout queries resolve chunk hits back to the source model via `VectorSearchEngine`, which auto-registers when Scout is installed.
+
+When using both `Searchable` and `SearchableVector`, duplicate dispatches are deduplicated via `ShouldBeUnique` on `ProcessVectorDocument` and `EmbedVectorChunks`.
 
 ## Custom drivers and embedding providers
 

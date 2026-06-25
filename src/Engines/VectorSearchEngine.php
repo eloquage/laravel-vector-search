@@ -6,6 +6,8 @@ namespace Eloquage\LaravelVectorSearch\Engines;
 
 use Eloquage\LaravelVectorSearch\Facades\LaravelVectorSearch;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
+use Eloquage\LaravelVectorSearch\Models\VectorDocument;
+use Eloquage\LaravelVectorSearch\Services\VectorChunkCleanup;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -121,19 +123,33 @@ class VectorSearchEngine extends Engine
 
     public function flush($model): void
     {
-        $model::query()->each(function (Model $record): void {
-            if (method_exists($record, 'vectorDocuments')) {
-                $record->vectorDocuments()->delete();
+        $cleanup = app(VectorChunkCleanup::class);
+
+        $model::query()->each(function (Model $record) use ($cleanup): void {
+            if (! method_exists($record, 'vectorDocuments')) {
+                return;
             }
+
+            $record->vectorDocuments()->each(function (VectorDocument $document) use ($cleanup): void {
+                $cleanup->purgeDocumentChunks($document);
+                $document->forceDelete();
+            });
         });
     }
 
     public function delete($models): void
     {
-        $models->each(function (Model $model): void {
-            if (method_exists($model, 'vectorDocuments')) {
-                $model->vectorDocuments()->delete();
+        $cleanup = app(VectorChunkCleanup::class);
+
+        $models->each(function (Model $model) use ($cleanup): void {
+            if (! method_exists($model, 'vectorDocuments')) {
+                return;
             }
+
+            $model->vectorDocuments()->each(function (VectorDocument $document) use ($cleanup): void {
+                $cleanup->purgeDocumentChunks($document);
+                $document->forceDelete();
+            });
         });
     }
 

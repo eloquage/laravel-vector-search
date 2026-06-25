@@ -7,26 +7,41 @@ namespace Eloquage\LaravelVectorSearch\Jobs;
 use Eloquage\LaravelVectorSearch\Contracts\TextSplitterInterface;
 use Eloquage\LaravelVectorSearch\Enums\ChunkingStrategy;
 use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
+use Eloquage\LaravelVectorSearch\Events\VectorDocumentFailed;
 use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Services\Chunking\RecursiveCharacterSplitter;
 use Eloquage\LaravelVectorSearch\Services\Chunking\SentenceSplitter;
 use Eloquage\LaravelVectorSearch\Services\Chunking\TokenLimitSplitter;
+use Eloquage\LaravelVectorSearch\Services\VectorChunkCleanup;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Throwable;
 
-class ProcessVectorDocument implements ShouldQueue
+class ProcessVectorDocument implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 3;
+
+    /** @var array<int, int> */
+    public array $backoff = [10, 60, 300];
+
+    public int $timeout = 300;
 
     public function __construct(
         public VectorDocument $document
     ) {}
 
-    public function handle(): void
+    public function uniqueId(): string
+    {
+        return $this->document->id;
+    }
+
+    public function handle(VectorChunkCleanup $cleanup): void
     {
         try {
             $this->document->update(['status' => DocumentStatus::PROCESSING]);
@@ -34,8 +49,7 @@ class ProcessVectorDocument implements ShouldQueue
             $index = $this->document->vectorIndex;
             $splitter = $this->resolveSplitter($index->chunking_strategy);
 
-            // Clear old chunks
-            $this->document->chunks()->delete();
+            $cleanup->purgeDocumentChunks($this->document);
 
             // Split content
             $chunkTexts = $splitter->split(
@@ -63,6 +77,8 @@ class ProcessVectorDocument implements ShouldQueue
                 'status' => DocumentStatus::FAILED,
                 'error_log' => $e->getMessage()."\n".$e->getTraceAsString(),
             ]);
+
+            event(new VectorDocumentFailed($this->document, $e->getMessage()));
 
             throw $e;
         }

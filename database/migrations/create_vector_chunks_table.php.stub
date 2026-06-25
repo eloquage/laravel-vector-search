@@ -19,7 +19,8 @@ return new class extends Migration
             $table->text('content');
 
             if (Schema::getConnection()->getDriverName() === 'pgsql' && method_exists($table, 'vector')) {
-                $table->vector('embedding', dimensions: 1536)->nullable();
+                $dimensions = (int) config('vector-search.index_defaults.dimensions', 1536);
+                $table->vector('embedding', dimensions: $dimensions)->nullable();
             } else {
                 $table->json('embedding')->nullable();
             }

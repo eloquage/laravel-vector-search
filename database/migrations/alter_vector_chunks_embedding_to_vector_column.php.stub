@@ -33,7 +33,8 @@ return new class extends Migration
                 return;
             }
 
-            $table->vector('embedding', dimensions: 1536)->nullable();
+            $dimensions = (int) config('vector-search.index_defaults.dimensions', 1536);
+            $table->vector('embedding', dimensions: $dimensions)->nullable();
         });
     }
 
@@ -44,6 +45,12 @@ return new class extends Migration
         }
 
         if (! Schema::hasTable('vector_chunks') || ! Schema::hasColumn('vector_chunks', 'embedding')) {
+            return;
+        }
+
+        $columnType = Schema::getColumnType('vector_chunks', 'embedding');
+
+        if ($columnType !== 'vector') {
             return;
         }
 

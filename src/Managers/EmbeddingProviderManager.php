@@ -9,6 +9,7 @@ use Eloquage\LaravelVectorSearch\EmbeddingProviders\NullEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\EmbeddingProviders\OllamaEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\EmbeddingProviders\OpenAiEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\Enums\EmbeddingProvider;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Manager;
 use InvalidArgumentException;
 
@@ -19,8 +20,28 @@ class EmbeddingProviderManager extends Manager
         return (string) config('vector-search.default_embedding_provider', EmbeddingProvider::OPENAI->value);
     }
 
+    public function isConfigured(?string $driver = null): bool
+    {
+        $driver ??= $this->getDefaultDriver();
+
+        return match ($driver) {
+            EmbeddingProvider::NULL_PROVIDER->value, 'null', 'null_provider' => true,
+            EmbeddingProvider::OPENAI->value => filled(config('vector-search.embedding_providers.openai.api_key')),
+            EmbeddingProvider::OLLAMA->value => filled(config('vector-search.embedding_providers.ollama.host')),
+            EmbeddingProvider::COHERE->value => filled(config('vector-search.embedding_providers.cohere.api_key')),
+            default => false,
+        };
+    }
+
     protected function createDriver($driver): EmbeddingProviderInterface
     {
+        if (in_array($driver, [EmbeddingProvider::NULL_PROVIDER->value, 'null', 'null_provider'], true)
+            && ! app()->environment(['local', 'testing'])) {
+            Log::warning('Null embedding provider resolved outside local/testing environments.', [
+                'provider' => $driver,
+            ]);
+        }
+
         return match ($driver) {
             EmbeddingProvider::OPENAI->value => $this->createOpenaiDriver(),
             EmbeddingProvider::COHERE->value => $this->createCohereDriver(),

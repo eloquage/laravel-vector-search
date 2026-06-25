@@ -24,11 +24,27 @@ class VectorSearchIndex
      */
     public function search(string $query, int $limit = 5): Collection
     {
+        if (! $this->indexHasEmbeddedChunks()) {
+            return new Collection;
+        }
+
         $embedder = $this->embeddings->driver($this->index->embedding_provider->value);
         $driver = $this->drivers->driver($this->index->driver->value);
         $vector = $embedder->embed($query);
 
         return $driver->search($this->index, $vector, $limit);
+    }
+
+    protected function indexHasEmbeddedChunks(): bool
+    {
+        return VectorChunk::query()
+            ->whereNotNull('embedding')
+            ->whereHas('vectorDocument', function ($documentQuery): void {
+                $documentQuery
+                    ->where('vector_index_id', $this->index->id)
+                    ->whereNull('deleted_at');
+            })
+            ->exists();
     }
 
     /**

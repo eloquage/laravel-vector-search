@@ -10,6 +10,8 @@ use Eloquage\LaravelVectorSearch\Drivers\PgVectorDriver;
 use Eloquage\LaravelVectorSearch\Enums\IndexDriver;
 use Illuminate\Support\Manager;
 use InvalidArgumentException;
+use Meilisearch\Client;
+use RuntimeException;
 
 class VectorDriverManager extends Manager
 {
@@ -37,6 +39,12 @@ class VectorDriverManager extends Manager
 
     public function createMeilisearchDriver(): VectorDriverInterface
     {
+        if (! class_exists(Client::class)) {
+            throw new RuntimeException(
+                'The Meilisearch driver requires meilisearch/meilisearch-php. Run: composer require meilisearch/meilisearch-php'
+            );
+        }
+
         return new MeilisearchDriver(
             host: (string) config('vector-search.drivers.meilisearch.host'),
             key: config('vector-search.drivers.meilisearch.key'),

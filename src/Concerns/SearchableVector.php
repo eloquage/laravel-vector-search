@@ -8,6 +8,7 @@ use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
 use Eloquage\LaravelVectorSearch\Jobs\ProcessVectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
+use Eloquage\LaravelVectorSearch\Services\VectorChunkCleanup;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -25,7 +26,12 @@ trait SearchableVector
         });
 
         static::deleted(function (Model $model): void {
-            $model->vectorDocuments()->delete();
+            $cleanup = app(VectorChunkCleanup::class);
+
+            $model->vectorDocuments()->each(function (VectorDocument $document) use ($cleanup): void {
+                $cleanup->purgeDocumentChunks($document);
+                $document->forceDelete();
+            });
         });
     }
 

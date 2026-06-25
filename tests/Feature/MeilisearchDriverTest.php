@@ -6,6 +6,7 @@ use Eloquage\LaravelVectorSearch\Drivers\PgVectorDriver;
 use Eloquage\LaravelVectorSearch\Enums\EmbeddingProvider;
 use Eloquage\LaravelVectorSearch\Enums\IndexDriver;
 use Eloquage\LaravelVectorSearch\Facades\LaravelVectorSearch;
+use Eloquage\LaravelVectorSearch\Managers\EmbeddingProviderManager;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
 use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
@@ -160,4 +161,63 @@ it('pgvector driver does not support keyword search', function () {
     $driver = new PgVectorDriver;
 
     expect($driver)->not->toBeInstanceOf(SupportsKeywordSearch::class);
+});
+
+it('performs vector search against meilisearch', function () {
+    $index = VectorIndex::factory()->create([
+        'name' => 'semantic-index',
+        'driver' => IndexDriver::MEILISEARCH,
+    ]);
+
+    $document = VectorDocument::factory()->for($index, 'vectorIndex')->create();
+    $chunk = VectorChunk::factory()->for($document, 'vectorDocument')->create([
+        'embedding' => [0.1, 0.2, 0.3],
+    ]);
+
+    $searchResult = Mockery::mock(SearchResult::class);
+    $searchResult->shouldReceive('getHits')->andReturn([
+        ['id' => $chunk->id],
+    ]);
+
+    $indexes = Mockery::mock(Indexes::class);
+    $indexes->shouldReceive('updateSettings')->once();
+    $indexes->shouldReceive('search')
+        ->once()
+        ->with('', Mockery::on(fn (array $params): bool => isset($params['vector'])))
+        ->andReturn($searchResult);
+
+    $client = Mockery::mock(Client::class);
+    $client->shouldReceive('getIndex')->once()->andReturn(Mockery::mock(Indexes::class));
+    $client->shouldReceive('index')->andReturn($indexes);
+
+    $driver = new MeilisearchDriver('http://localhost:7700', null, $client);
+    $results = $driver->search($index, [0.1, 0.2, 0.3], limit: 3);
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->id)->toBe($chunk->id);
+});
+
+it('deletes chunk documents from meilisearch', function () {
+    $index = VectorIndex::factory()->create(['driver' => IndexDriver::MEILISEARCH]);
+    $document = VectorDocument::factory()->for($index, 'vectorIndex')->create();
+    $chunk = VectorChunk::factory()->for($document, 'vectorDocument')->create();
+
+    $indexes = Mockery::mock(Indexes::class);
+    $indexes->shouldReceive('deleteDocument')->once()->with((string) $chunk->id);
+
+    $client = Mockery::mock(Client::class);
+    $client->shouldReceive('index')->andReturn($indexes);
+
+    $driver = new MeilisearchDriver('http://localhost:7700', null, $client);
+    $driver->delete($chunk);
+});
+
+it('reports embedding provider configuration status', function () {
+    config()->set('vector-search.embedding_providers.openai.api_key', '');
+
+    expect(app(EmbeddingProviderManager::class)->isConfigured('openai'))->toBeFalse();
+
+    config()->set('vector-search.embedding_providers.openai.api_key', 'sk-test');
+
+    expect(app(EmbeddingProviderManager::class)->isConfigured('openai'))->toBeTrue();
 });
