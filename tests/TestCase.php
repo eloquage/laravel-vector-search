@@ -1,10 +1,10 @@
 <?php
 
-namespace VendorName\Skeleton\Tests;
+namespace Eloquage\LaravelVectorSearch\Tests;
 
+use Eloquage\LaravelVectorSearch\LaravelVectorSearchServiceProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Orchestra\Testbench\TestCase as Orchestra;
-use VendorName\Skeleton\SkeletonServiceProvider;
 
 class TestCase extends Orchestra
 {
@@ -13,25 +13,36 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'VendorName\\Skeleton\\Database\\Factories\\'.class_basename($modelName).'Factory'
+            fn(string $modelName
+            ) => 'Eloquage\\LaravelVectorSearch\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
     }
 
-    protected function getPackageProviders($app)
+    protected function getPackageProviders($app): array
     {
         return [
-            SkeletonServiceProvider::class,
+            LaravelVectorSearchServiceProvider::class,
         ];
     }
 
-    public function getEnvironmentSetUp($app)
+    public function getEnvironmentSetUp($app): void
     {
         config()->set('database.default', 'testing');
+        config()->set('vector-search.default_embedding_provider', 'null');
 
-        /*
-         foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/../database/migrations') as $migration) {
-            (include $migration->getRealPath())->up();
-         }
-         */
+        $app['config']->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+        ]);
+
+        $migration = include dirname(__DIR__).'/database/migrations/create_vector_indexes_table.php.stub';
+        $migration->up();
+
+        $migration = include dirname(__DIR__).'/database/migrations/create_vector_documents_table.php.stub';
+        $migration->up();
+
+        $migration = include dirname(__DIR__).'/database/migrations/create_vector_chunks_table.php.stub';
+        $migration->up();
     }
 }

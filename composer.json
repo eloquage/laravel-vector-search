@@ -1,29 +1,35 @@
 {
-    "name": ":vendor_slug/:package_slug",
-    "description": ":package_description",
+    "name": "eloquage/laravel-vector-search",
+    "description": "Laravel vector search engine with embeddings, pgvector drivers, and optional Scout integration.",
     "keywords": [
-        ":vendor_name",
         "laravel",
-        ":package_slug"
+        "vector-search",
+        "embeddings",
+        "pgvector",
+        "scout"
     ],
-    "homepage": "https://github.com/:vendor_slug/:package_slug",
+    "homepage": "https://github.com/eloquage/laravel-vector-search",
     "license": "MIT",
     "authors": [
         {
-            "name": ":author_name",
-            "email": "author@domain.com",
+            "name": "Miguel Enes",
+            "email": "carlos.miguel.enes@gmail.com",
             "role": "Developer"
         }
     ],
     "require": {
         "php": "^8.4",
-        "spatie/laravel-package-tools": "^1.16",
-        "illuminate/contracts": "^11.0||^12.0||^13.0"
+        "illuminate/bus": "^11.0||^12.0||^13.0",
+        "illuminate/contracts": "^11.0||^12.0||^13.0",
+        "illuminate/database": "^11.0||^12.0||^13.0",
+        "illuminate/http": "^11.0||^12.0||^13.0",
+        "illuminate/support": "^11.0||^12.0||^13.0",
+        "spatie/laravel-package-tools": "^1.16"
     },
     "require-dev": {
         "laravel/pint": "^1.14",
-        "nunomaduro/collision": "^8.8",
         "larastan/larastan": "^3.0",
+        "nunomaduro/collision": "^8.8",
         "orchestra/testbench": "^11.0.0||^10.0.0||^9.0.0",
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-arch": "^4.0",
@@ -33,15 +39,20 @@
         "phpstan/phpstan-phpunit": "^2.0",
         "spatie/laravel-ray": "^1.35"
     },
+    "suggest": {
+        "laravel/scout": "Required to use the SearchableVector trait and VectorSearchEngine (^11.0).",
+        "eloquage/filament-vector-search": "Filament v5 admin plugin with search dashboard.",
+        "eloquage/laravel-vector-search-ai": "Laravel AI SDK and MCP integrations."
+    },
     "autoload": {
         "psr-4": {
-            "VendorName\\Skeleton\\": "src/",
-            "VendorName\\Skeleton\\Database\\Factories\\": "database/factories/"
+            "Eloquage\\LaravelVectorSearch\\": "src/",
+            "Eloquage\\LaravelVectorSearch\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "VendorName\\Skeleton\\Tests\\": "tests/",
+            "Eloquage\\LaravelVectorSearch\\Tests\\": "tests/",
             "Workbench\\App\\": "workbench/app/"
         }
     },
@@ -63,10 +74,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "VendorName\\Skeleton\\SkeletonServiceProvider"
+                "Eloquage\\LaravelVectorSearch\\LaravelVectorSearchServiceProvider"
             ],
             "aliases": {
-                "Skeleton": "VendorName\\Skeleton\\Facades\\Skeleton"
+                "LaravelVectorSearch": "Eloquage\\LaravelVectorSearch\\Facades\\LaravelVectorSearch"
             }
         }
     },

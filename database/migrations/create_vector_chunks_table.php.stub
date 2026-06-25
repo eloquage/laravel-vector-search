@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (method_exists(Schema::class, 'ensureVectorExtensionExists')) {
+            Schema::ensureVectorExtensionExists();
+        }
+
+        Schema::create('vector_chunks', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('vector_document_id')->constrained('vector_documents')->cascadeOnDelete();
+            $table->integer('chunk_index');
+            $table->text('content');
+
+            if (Schema::getConnection()->getDriverName() === 'pgsql' && method_exists($table, 'vector')) {
+                $table->vector('embedding', dimensions: 1536)->nullable();
+            } else {
+                $table->json('embedding')->nullable();
+            }
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('vector_chunks');
+    }
+};

@@ -1,0 +1,58 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        if (! Schema::hasTable('vector_chunks') || ! Schema::hasColumn('vector_chunks', 'embedding')) {
+            return;
+        }
+
+        if (method_exists(Schema::class, 'ensureVectorExtensionExists')) {
+            Schema::ensureVectorExtensionExists();
+        }
+
+        Schema::table('vector_chunks', function (Blueprint $table) {
+            if (! method_exists($table, 'vector')) {
+                return;
+            }
+
+            $table->dropColumn('embedding');
+        });
+
+        Schema::table('vector_chunks', function (Blueprint $table) {
+            if (! method_exists($table, 'vector')) {
+                return;
+            }
+
+            $table->vector('embedding', dimensions: 1536)->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        if (! Schema::hasTable('vector_chunks') || ! Schema::hasColumn('vector_chunks', 'embedding')) {
+            return;
+        }
+
+        Schema::table('vector_chunks', function (Blueprint $table) {
+            $table->dropColumn('embedding');
+        });
+
+        Schema::table('vector_chunks', function (Blueprint $table) {
+            $table->json('embedding')->nullable();
+        });
+    }
+};
