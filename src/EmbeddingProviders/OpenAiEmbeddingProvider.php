@@ -14,8 +14,7 @@ class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
     public function __construct(
         protected string $apiKey,
         protected string $model,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<float>
@@ -59,10 +58,10 @@ class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
         /** @var array<int, array{embedding: array<float>}> $data */
         $data = $response->json('data', []);
 
-        usort($data, fn(array $left, array $right): int => ($left['index'] ?? 0) <=> ($right['index'] ?? 0));
+        usort($data, fn (array $left, array $right): int => ($left['index'] ?? 0) <=> ($right['index'] ?? 0));
 
         return array_map(
-            fn(array $item): array => $item['embedding'],
+            fn (array $item): array => $item['embedding'],
             $data,
         );
     }

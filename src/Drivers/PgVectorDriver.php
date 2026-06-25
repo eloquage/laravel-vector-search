@@ -14,8 +14,7 @@ class PgVectorDriver implements VectorDriverInterface
 {
     public function __construct(
         protected ?string $connection = null,
-    ) {
-    }
+    ) {}
 
     public function upsert(VectorChunk $chunk): void
     {
@@ -33,7 +32,7 @@ class PgVectorDriver implements VectorDriverInterface
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection
     {
         $query = VectorChunk::query()
-            ->when($this->connection !== null, fn($builder) => $builder->on($this->connection))
+            ->when($this->connection !== null, fn ($builder) => $builder->on($this->connection))
             ->join('vector_documents', 'vector_chunks.vector_document_id', '=', 'vector_documents.id')
             ->where('vector_documents.vector_index_id', $index->id)
             ->whereNotNull('vector_chunks.embedding')
@@ -62,8 +61,8 @@ class PgVectorDriver implements VectorDriverInterface
     protected function searchInMemory(Collection $chunks, array $vector, int $limit): Collection
     {
         return $chunks
-            ->filter(fn(VectorChunk $chunk): bool => is_array($chunk->embedding) && $chunk->embedding !== [])
-            ->sortBy(fn(VectorChunk $chunk): float => $this->cosineDistance($vector, $chunk->embedding))
+            ->filter(fn (VectorChunk $chunk): bool => is_array($chunk->embedding) && $chunk->embedding !== [])
+            ->sortBy(fn (VectorChunk $chunk): float => $this->cosineDistance($vector, $chunk->embedding))
             ->take($limit)
             ->values();
     }

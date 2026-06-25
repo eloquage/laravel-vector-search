@@ -34,9 +34,9 @@ class LaravelVectorSearchServiceProvider extends PackageServiceProvider
         $this->app->singleton(LaravelVectorSearch::class);
 
         $this->app->bind(VectorDriverInterface::class,
-            fn($app): VectorDriverInterface => $app->make(VectorDriverManager::class)->driver());
+            fn ($app): VectorDriverInterface => $app->make(VectorDriverManager::class)->driver());
         $this->app->bind(EmbeddingProviderInterface::class,
-            fn($app): EmbeddingProviderInterface => $app->make(EmbeddingProviderManager::class)->driver());
+            fn ($app): EmbeddingProviderInterface => $app->make(EmbeddingProviderManager::class)->driver());
     }
 
     public function packageBooted(): void

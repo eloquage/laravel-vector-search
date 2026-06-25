@@ -21,8 +21,7 @@ class EmbedVectorChunks implements ShouldQueue
 
     public function __construct(
         public VectorDocument $document
-    ) {
-    }
+    ) {}
 
     public function handle(
         EmbeddingProviderManager $embeddings,

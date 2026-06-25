@@ -13,7 +13,7 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn(string $modelName
+            fn (string $modelName
             ) => 'Eloquage\\LaravelVectorSearch\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
     }

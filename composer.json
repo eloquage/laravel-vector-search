@@ -27,6 +27,7 @@
         "spatie/laravel-package-tools": "^1.16"
     },
     "require-dev": {
+        "meilisearch/meilisearch-php": "^1.0",
         "laravel/pint": "^1.14",
         "larastan/larastan": "^3.0",
         "nunomaduro/collision": "^8.8",
@@ -40,6 +41,7 @@
         "spatie/laravel-ray": "^1.35"
     },
     "suggest": {
+        "meilisearch/meilisearch-php": "Required when using the Meilisearch vector driver (^1.0).",
         "laravel/scout": "Required to use the SearchableVector trait and VectorSearchEngine (^11.0).",
         "eloquage/filament-vector-search": "Filament v5 admin plugin with search dashboard.",
         "eloquage/laravel-vector-search-ai": "Laravel AI SDK and MCP integrations."

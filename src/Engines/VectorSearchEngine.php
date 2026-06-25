@@ -73,7 +73,7 @@ class VectorSearchEngine extends Engine
         $keys = $results->pluck('source_key')->values()->all();
 
         return $model->getScoutModelsByIds($builder, $keys)
-            ->sortBy(fn(Model $found): int|false => array_search($found->getScoutKey(), $keys, true))
+            ->sortBy(fn (Model $found): int|false => array_search($found->getScoutKey(), $keys, true))
             ->values();
     }
 
@@ -117,11 +117,7 @@ class VectorSearchEngine extends Engine
         });
     }
 
-    public function createIndex($name, array $options = []): void
-    {
-    }
+    public function createIndex($name, array $options = []): void {}
 
-    public function deleteIndex($name): void
-    {
-    }
+    public function deleteIndex($name): void {}
 }

@@ -41,14 +41,14 @@ class RecursiveCharacterSplitter implements TextSplitterInterface
             if (strlen($split) < $chunkSize) {
                 $goodSplits[] = $split;
             } else {
-                if (!empty($goodSplits)) {
+                if (! empty($goodSplits)) {
                     $mergedText = $this->mergeSplits($goodSplits, $separator, $chunkSize, $chunkOverlap);
                     $finalChunks = array_merge($finalChunks, $mergedText);
                     $goodSplits = [];
                 }
-                if (!empty($separators)) {
+                if (! empty($separators)) {
                     $nextSeparators = array_slice($separators, 1);
-                    if (!empty($nextSeparators)) {
+                    if (! empty($nextSeparators)) {
                         $otherInfo = $this->splitText($split, $chunkSize, $chunkOverlap, $nextSeparators);
                         $finalChunks = array_merge($finalChunks, $otherInfo);
 
@@ -59,7 +59,7 @@ class RecursiveCharacterSplitter implements TextSplitterInterface
             }
         }
 
-        if (!empty($goodSplits)) {
+        if (! empty($goodSplits)) {
             $mergedText = $this->mergeSplits($goodSplits, $separator, $chunkSize, $chunkOverlap);
             $finalChunks = array_merge($finalChunks, $mergedText);
         }
@@ -87,7 +87,7 @@ class RecursiveCharacterSplitter implements TextSplitterInterface
             $total += $len;
         }
 
-        if (!empty($currentDoc)) {
+        if (! empty($currentDoc)) {
             $docs[] = implode($separator, $currentDoc);
         }
 

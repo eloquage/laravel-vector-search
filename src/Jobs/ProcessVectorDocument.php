@@ -24,8 +24,7 @@ class ProcessVectorDocument implements ShouldQueue
 
     public function __construct(
         public VectorDocument $document
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {

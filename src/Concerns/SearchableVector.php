@@ -19,7 +19,7 @@ trait SearchableVector
     public static function bootSearchableVector(): void
     {
         static::saved(function (Model $model): void {
-            if (!method_exists($model, 'shouldSyncVectorDocument') || $model->shouldSyncVectorDocument()) {
+            if (! method_exists($model, 'shouldSyncVectorDocument') || $model->shouldSyncVectorDocument()) {
                 $model->syncVectorDocument();
             }
         });

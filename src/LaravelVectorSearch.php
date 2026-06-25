@@ -16,8 +16,7 @@ class LaravelVectorSearch
     public function __construct(
         protected EmbeddingProviderManager $embeddings,
         protected VectorDriverManager $drivers,
-    ) {
-    }
+    ) {}
 
     public function forIndex(string|VectorIndex $index): VectorSearchIndex
     {

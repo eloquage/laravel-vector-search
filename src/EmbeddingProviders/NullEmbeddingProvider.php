@@ -38,6 +38,6 @@ class NullEmbeddingProvider implements EmbeddingProviderInterface
      */
     public function embedBatch(array $texts): array
     {
-        return array_map(fn(string $text): array => $this->fakeVector($text), $texts);
+        return array_map(fn (string $text): array => $this->fakeVector($text), $texts);
     }
 }

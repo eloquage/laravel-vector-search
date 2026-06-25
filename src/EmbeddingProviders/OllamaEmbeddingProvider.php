@@ -14,8 +14,7 @@ class OllamaEmbeddingProvider implements EmbeddingProviderInterface
     public function __construct(
         protected string $host,
         protected string $model,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string>  $texts
@@ -23,7 +22,7 @@ class OllamaEmbeddingProvider implements EmbeddingProviderInterface
      */
     public function embedBatch(array $texts): array
     {
-        return array_map(fn(string $text): array => $this->embed($text), $texts);
+        return array_map(fn (string $text): array => $this->embed($text), $texts);
     }
 
     /**

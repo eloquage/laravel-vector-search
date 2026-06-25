@@ -12,7 +12,7 @@ class ScoutVectorSearchServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        if (!class_exists(EngineManager::class)) {
+        if (! class_exists(EngineManager::class)) {
             return;
         }
 
