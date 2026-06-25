@@ -8,6 +8,7 @@ use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
 use Eloquage\LaravelVectorSearch\Jobs\ProcessVectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
+use Eloquage\LaravelVectorSearch\Services\VectorDocumentPurger;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -19,19 +20,25 @@ trait SearchableVector
     public static function bootSearchableVector(): void
     {
         static::saved(function (Model $model): void {
-            if (! method_exists($model, 'shouldSyncVectorDocument') || $model->shouldSyncVectorDocument()) {
-                $model->syncVectorDocument();
+            if (method_exists($model, 'shouldSyncVectorDocument') && ! $model->shouldSyncVectorDocument()) {
+                return;
             }
+
+            $model->syncVectorDocument();
         });
 
         static::deleted(function (Model $model): void {
-            $model->vectorDocuments()->delete();
+            $model->purgeVectorDocuments();
         });
     }
 
     public function shouldSyncVectorDocument(): bool
     {
-        return true;
+        if ($this->wasRecentlyCreated) {
+            return true;
+        }
+
+        return $this->wasChanged(['title', 'content', 'name', 'body']);
     }
 
     public function syncVectorDocument(): void
@@ -64,6 +71,15 @@ trait SearchableVector
         }
 
         ProcessVectorDocument::dispatch($document);
+    }
+
+    public function purgeVectorDocuments(): void
+    {
+        $purger = app(VectorDocumentPurger::class);
+
+        $this->vectorDocuments()->each(function (VectorDocument $document) use ($purger): void {
+            $purger->purge($document);
+        });
     }
 
     public function vectorSearchIndexName(): string

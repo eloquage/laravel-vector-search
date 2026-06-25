@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Eloquage\LaravelVectorSearch\Drivers;
 
 use Eloquage\LaravelVectorSearch\Contracts\VectorDriverInterface;
+use Eloquage\LaravelVectorSearch\Drivers\Concerns\ProvidesDefaultVectorDriverOperations;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
+use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class PgVectorDriver implements VectorDriverInterface
 {
+    use ProvidesDefaultVectorDriverOperations;
+
     public function __construct(
         protected ?string $connection = null,
     ) {}
@@ -29,10 +34,23 @@ class PgVectorDriver implements VectorDriverInterface
         $chunk->save();
     }
 
+    /**
+     * @param  iterable<int, VectorChunk>  $chunks
+     */
+    public function upsertMany(iterable $chunks): void
+    {
+        foreach ($chunks as $chunk) {
+            $this->upsert($chunk);
+        }
+    }
+
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection
     {
-        $query = VectorChunk::query()
-            ->when($this->connection !== null, fn ($builder) => $builder->on($this->connection))
+        $query = $this->connection !== null
+            ? VectorChunk::on($this->connection)
+            : VectorChunk::query();
+
+        $query = $query
             ->join('vector_documents', 'vector_chunks.vector_document_id', '=', 'vector_documents.id')
             ->where('vector_documents.vector_index_id', $index->id)
             ->whereNotNull('vector_chunks.embedding')
@@ -45,13 +63,15 @@ class PgVectorDriver implements VectorDriverInterface
                 ->get();
         }
 
+        Log::warning('PgVectorDriver falling back to in-memory vector search. Use PostgreSQL with pgvector for production workloads.');
+
         return $this->searchInMemory($query->get(), $vector, $limit);
     }
 
     protected function supportsDatabaseVectorSearch(): bool
     {
         return Schema::connection($this->connection)->getConnection()->getDriverName() === 'pgsql'
-            && method_exists(VectorChunk::query()->getQuery(), 'whereVectorSimilarTo');
+            && VectorChunk::hasMacro('whereVectorSimilarTo');
     }
 
     /**
@@ -97,6 +117,19 @@ class PgVectorDriver implements VectorDriverInterface
             $chunk->setConnection($this->connection);
         }
 
-        $chunk->update(['embedding' => null]);
+        $chunk->delete();
+    }
+
+    public function deleteByDocument(VectorDocument $document): void
+    {
+        if ($this->connection !== null) {
+            VectorChunk::on($this->connection)
+                ->where('vector_document_id', $document->id)
+                ->delete();
+
+            return;
+        }
+
+        $document->chunks()->delete();
     }
 }

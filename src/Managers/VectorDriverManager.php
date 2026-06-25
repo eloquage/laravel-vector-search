@@ -20,6 +20,10 @@ class VectorDriverManager extends Manager
 
     protected function createDriver($driver): VectorDriverInterface
     {
+        if (isset($this->customCreators[$driver])) {
+            return parent::createDriver($driver);
+        }
+
         return match ($driver) {
             IndexDriver::POSTGRES_VECTOR->value, 'pgvector' => $this->createPostgresVectorDriver(),
             IndexDriver::MEILISEARCH->value => $this->createMeilisearchDriver(),

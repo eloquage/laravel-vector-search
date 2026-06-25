@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Eloquage\LaravelVectorSearch\Models;
 
 use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
+use Eloquage\LaravelVectorSearch\Services\VectorDocumentPurger;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property string $id
+ * @property string $vector_index_id
+ * @property string|null $source_type
+ * @property string|null $source_id
+ * @property string|null $title
+ * @property string $content
+ * @property array<string, mixed>|null $metadata
+ * @property DocumentStatus $status
+ * @property string|null $error_log
+ * @property-read VectorIndex|null $vectorIndex
+ */
 class VectorDocument extends Model
 {
     use HasFactory;
@@ -40,6 +53,17 @@ class VectorDocument extends Model
         'metadata' => 'array',
         'status' => DocumentStatus::class,
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (VectorDocument $document): void {
+            if ($document->isForceDeleting()) {
+                return;
+            }
+
+            app(VectorDocumentPurger::class)->purgeChunks($document);
+        });
+    }
 
     public function vectorIndex(): BelongsTo
     {

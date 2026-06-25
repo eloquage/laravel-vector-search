@@ -14,6 +14,19 @@ Use `VectorSearch::indexDocument($document)` to queue chunking + embedding.
 
 ## Extension points
 
-- Register custom drivers via `VectorDriverManager::extend()`
-- Register custom embedding providers via `EmbeddingProviderManager::extend()`
-- Optional Scout engine: set `SCOUT_DRIVER=vector-search` and use `SearchableVector` trait
+Register custom drivers and embedding providers in `AppServiceProvider`:
+
+```php
+use Eloquage\LaravelVectorSearch\LaravelVectorSearch;
+use Eloquage\LaravelVectorSearch\Managers\EmbeddingProviderManager;
+use Eloquage\LaravelVectorSearch\Managers\VectorDriverManager;
+
+LaravelVectorSearch::configure(function (VectorDriverManager $drivers, EmbeddingProviderManager $embeddings): void {
+    $drivers->extend('custom', fn () => new CustomVectorDriver);
+    $embeddings->extend('custom', fn () => new CustomEmbeddingProvider);
+});
+```
+
+Custom text splitters can be registered in `config/vector-search.php` under `splitters`.
+
+Optional Scout engine: set `SCOUT_DRIVER=vector-search` and use `SearchableVector` trait.

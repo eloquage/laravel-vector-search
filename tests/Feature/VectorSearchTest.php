@@ -5,6 +5,7 @@ use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
 use Eloquage\LaravelVectorSearch\Enums\EmbeddingProvider;
 use Eloquage\LaravelVectorSearch\Facades\LaravelVectorSearch;
 use Eloquage\LaravelVectorSearch\Jobs\ProcessVectorDocument;
+use Eloquage\LaravelVectorSearch\Managers\EmbeddingProviderManager;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
 use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
@@ -35,6 +36,8 @@ it('splits text recursively', function () {
 it('dispatches embedding after chunking a document', function () {
     $index = VectorIndex::factory()->create([
         'embedding_provider' => EmbeddingProvider::NULL_PROVIDER,
+        'dimensions' => 8,
+        'embedding_model' => 'null',
     ]);
     $document = VectorDocument::factory()->for($index, 'vectorIndex')->create([
         'content' => 'Laravel makes vector search approachable.',
@@ -54,13 +57,17 @@ it('searches an index through the facade', function () {
     $index = VectorIndex::factory()->create([
         'name' => 'docs',
         'embedding_provider' => EmbeddingProvider::NULL_PROVIDER,
+        'dimensions' => 8,
+        'embedding_model' => 'null',
     ]);
     $document = VectorDocument::factory()->for($index, 'vectorIndex')->create([
         'title' => 'Deployment guide',
         'status' => DocumentStatus::COMPLETED,
     ]);
 
-    $embedding = (new NullEmbeddingProvider)->embed('deployment');
+    $embedding = app(EmbeddingProviderManager::class)
+        ->forIndex($index)
+        ->embed('deployment');
 
     VectorChunk::factory()->for($document, 'vectorDocument')->create([
         'chunk_index' => 0,

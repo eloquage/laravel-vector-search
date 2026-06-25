@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        if (! Schema::hasTable('vector_chunks') || ! Schema::hasColumn('vector_chunks', 'embedding')) {
+            return;
+        }
+
+        if (method_exists(Schema::class, 'ensureVectorExtensionExists')) {
+            Schema::ensureVectorExtensionExists();
+        }
+
+        DB::statement('CREATE INDEX IF NOT EXISTS vector_chunks_embedding_hnsw_idx ON vector_chunks USING hnsw (embedding vector_cosine_ops)');
+    }
+
+    public function down(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::statement('DROP INDEX IF EXISTS vector_chunks_embedding_hnsw_idx');
+    }
+};

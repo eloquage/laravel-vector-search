@@ -10,8 +10,6 @@ class TokenLimitSplitter implements TextSplitterInterface
 {
     public function split(string $text, int $chunkSize, int $chunkOverlap): array
     {
-        // Simple approximation: 1 token ~ 4 characters.
-        // A real implementation would use a tokenizer like tiktoken.
         $approxCharLimit = $chunkSize * 4;
         $approxCharOverlap = $chunkOverlap * 4;
 
@@ -21,10 +19,14 @@ class TokenLimitSplitter implements TextSplitterInterface
 
         foreach ($words as $word) {
             if (strlen($currentChunk) + strlen($word) + 1 > $approxCharLimit) {
-                $chunks[] = trim($currentChunk);
-                // To do proper overlap, we'd slice words from the end of currentChunk.
-                // Doing a very basic reset here.
-                $currentChunk = $word.' ';
+                $trimmed = trim($currentChunk);
+
+                if ($trimmed !== '') {
+                    $chunks[] = $trimmed;
+                }
+
+                $overlapText = $this->tailOverlap($trimmed, $approxCharOverlap);
+                $currentChunk = $overlapText !== '' ? $overlapText.' '.$word.' ' : $word.' ';
             } else {
                 $currentChunk .= $word.' ';
             }
@@ -35,5 +37,25 @@ class TokenLimitSplitter implements TextSplitterInterface
         }
 
         return $chunks;
+    }
+
+    protected function tailOverlap(string $text, int $overlapChars): string
+    {
+        if ($overlapChars <= 0 || $text === '') {
+            return '';
+        }
+
+        if (strlen($text) <= $overlapChars) {
+            return $text;
+        }
+
+        $tail = substr($text, -$overlapChars);
+        $spacePosition = strpos($tail, ' ');
+
+        if ($spacePosition === false) {
+            return $tail;
+        }
+
+        return trim(substr($tail, $spacePosition));
     }
 }

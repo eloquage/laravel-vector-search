@@ -4,10 +4,27 @@ declare(strict_types=1);
 
 namespace Eloquage\LaravelVectorSearch\EmbeddingProviders;
 
-use Eloquage\LaravelVectorSearch\Contracts\EmbeddingProviderInterface;
+use Eloquage\LaravelVectorSearch\Contracts\ConfigurableEmbeddingProvider;
 
-class NullEmbeddingProvider implements EmbeddingProviderInterface
+class NullEmbeddingProvider implements ConfigurableEmbeddingProvider
 {
+    public function __construct(
+        protected ?int $dimensions = null,
+    ) {}
+
+    public function withModel(string $model): static
+    {
+        return clone $this;
+    }
+
+    public function withDimensions(?int $dimensions): static
+    {
+        $clone = clone $this;
+        $clone->dimensions = $dimensions;
+
+        return $clone;
+    }
+
     /**
      * @return array<float>
      */
@@ -21,7 +38,7 @@ class NullEmbeddingProvider implements EmbeddingProviderInterface
      */
     protected function fakeVector(string $text): array
     {
-        $dimensions = (int) config('vector-search.testing.embedding_dimensions', 8);
+        $dimensions = $this->dimensions ?? (int) config('vector-search.testing.embedding_dimensions', 8);
         $seed = crc32($text);
         $vector = [];
 

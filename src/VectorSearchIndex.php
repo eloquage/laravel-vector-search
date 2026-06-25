@@ -24,7 +24,7 @@ class VectorSearchIndex
      */
     public function search(string $query, int $limit = 5): Collection
     {
-        $embedder = $this->embeddings->driver($this->index->embedding_provider->value);
+        $embedder = $this->embeddings->forIndex($this->index);
         $driver = $this->drivers->driver($this->index->driver->value);
         $vector = $embedder->embed($query);
 

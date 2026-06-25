@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Eloquage\LaravelVectorSearch\Managers;
 
+use Eloquage\LaravelVectorSearch\Contracts\ConfigurableEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\Contracts\EmbeddingProviderInterface;
 use Eloquage\LaravelVectorSearch\EmbeddingProviders\NullEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\EmbeddingProviders\OllamaEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\EmbeddingProviders\OpenAiEmbeddingProvider;
 use Eloquage\LaravelVectorSearch\Enums\EmbeddingProvider;
+use Eloquage\LaravelVectorSearch\Models\VectorIndex;
 use Illuminate\Support\Manager;
 use InvalidArgumentException;
 
@@ -19,8 +21,25 @@ class EmbeddingProviderManager extends Manager
         return (string) config('vector-search.default_embedding_provider', EmbeddingProvider::OPENAI->value);
     }
 
+    public function forIndex(VectorIndex $index): EmbeddingProviderInterface
+    {
+        $provider = $this->driver($index->embedding_provider->value);
+
+        if (! $provider instanceof ConfigurableEmbeddingProvider) {
+            return $provider;
+        }
+
+        return $provider
+            ->withModel($index->embedding_model)
+            ->withDimensions($index->dimensions);
+    }
+
     protected function createDriver($driver): EmbeddingProviderInterface
     {
+        if (isset($this->customCreators[$driver])) {
+            return parent::createDriver($driver);
+        }
+
         return match ($driver) {
             EmbeddingProvider::OPENAI->value => $this->createOpenaiDriver(),
             EmbeddingProvider::COHERE->value => $this->createCohereDriver(),

@@ -12,7 +12,7 @@ enum IndexDriver: string implements HasLabel
     case MEILISEARCH = 'meilisearch';
     case PINECONE = 'pinecone';
 
-    public function getLabel(): ?string
+    public function getLabel(): string
     {
         return match ($this) {
             self::POSTGRES_VECTOR => 'Postgres Vector',

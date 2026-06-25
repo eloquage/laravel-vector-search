@@ -13,6 +13,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property IndexDriver $driver
+ * @property EmbeddingProvider $embedding_provider
+ * @property string|null $embedding_model
+ * @property int|null $dimensions
+ * @property ChunkingStrategy $chunking_strategy
+ * @property int $chunk_size
+ * @property int $chunk_overlap
+ * @property string $name
+ */
 class VectorIndex extends Model
 {
     use HasFactory;

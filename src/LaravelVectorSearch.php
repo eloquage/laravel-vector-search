@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Eloquage\LaravelVectorSearch;
 
+use Closure;
 use Eloquage\LaravelVectorSearch\Jobs\ProcessVectorDocument;
 use Eloquage\LaravelVectorSearch\Managers\EmbeddingProviderManager;
 use Eloquage\LaravelVectorSearch\Managers\VectorDriverManager;
@@ -13,10 +14,27 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class LaravelVectorSearch
 {
+    protected static ?Closure $configurator = null;
+
     public function __construct(
         protected EmbeddingProviderManager $embeddings,
         protected VectorDriverManager $drivers,
     ) {}
+
+    /**
+     * @param  Closure(VectorDriverManager, EmbeddingProviderManager): void  $callback
+     */
+    public static function configure(Closure $callback): void
+    {
+        static::$configurator = $callback;
+    }
+
+    public static function runConfigurator(VectorDriverManager $drivers, EmbeddingProviderManager $embeddings): void
+    {
+        if (static::$configurator !== null) {
+            (static::$configurator)($drivers, $embeddings);
+        }
+    }
 
     public function forIndex(string|VectorIndex $index): VectorSearchIndex
     {

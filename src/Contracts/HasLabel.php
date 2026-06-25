@@ -6,5 +6,5 @@ namespace Eloquage\LaravelVectorSearch\Contracts;
 
 interface HasLabel
 {
-    public function getLabel(): ?string;
+    public function getLabel(): string;
 }

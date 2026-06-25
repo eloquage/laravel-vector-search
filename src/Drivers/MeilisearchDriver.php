@@ -6,7 +6,9 @@ namespace Eloquage\LaravelVectorSearch\Drivers;
 
 use Eloquage\LaravelVectorSearch\Contracts\SupportsKeywordSearch;
 use Eloquage\LaravelVectorSearch\Contracts\VectorDriverInterface;
+use Eloquage\LaravelVectorSearch\Drivers\Concerns\ProvidesDefaultVectorDriverOperations;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
+use Eloquage\LaravelVectorSearch\Models\VectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
 use Illuminate\Support\Collection;
 use Meilisearch\Client;
@@ -15,6 +17,8 @@ use Throwable;
 
 class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
 {
+    use ProvidesDefaultVectorDriverOperations;
+
     /**
      * @var array<string, bool>
      */
@@ -28,40 +32,46 @@ class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
 
     public function upsert(VectorChunk $chunk): void
     {
-        if (empty($chunk->embedding)) {
+        $this->upsertMany([$chunk]);
+    }
+
+    /**
+     * @param  iterable<int, VectorChunk>  $chunks
+     */
+    public function upsertMany(iterable $chunks): void
+    {
+        $chunks = collect($chunks)->filter(fn (VectorChunk $chunk): bool => ! empty($chunk->embedding));
+
+        if ($chunks->isEmpty()) {
             return;
         }
 
-        $chunk->loadMissing('vectorDocument.vectorIndex');
+        $chunks->each->loadMissing('vectorDocument.vectorIndex');
 
-        $document = $chunk->vectorDocument;
-        $index = $document?->vectorIndex;
+        $grouped = $chunks->groupBy(fn (VectorChunk $chunk): string => (string) $chunk->vectorDocument?->vectorIndex?->id);
 
-        if ($document === null || $index === null) {
-            return;
+        foreach ($grouped as $indexChunks) {
+            /** @var VectorChunk $first */
+            $first = $indexChunks->first();
+            $index = $first->vectorDocument?->vectorIndex;
+
+            if ($index === null) {
+                continue;
+            }
+
+            $this->ensureIndex($index);
+
+            $payloads = $indexChunks
+                ->map(fn (VectorChunk $chunk): array => $this->buildPayload($chunk))
+                ->values()
+                ->all();
+
+            $batchSize = (int) config('vector-search.drivers.meilisearch.batch_size', 100);
+
+            foreach (array_chunk($payloads, max(1, $batchSize)) as $batch) {
+                $this->index($index)->addDocuments($batch);
+            }
         }
-
-        $this->ensureIndex($index);
-
-        $metadata = is_array($document->metadata) ? $document->metadata : [];
-
-        $payload = [
-            'id' => (string) $chunk->id,
-            'content' => $chunk->content,
-            'chunk_index' => $chunk->chunk_index,
-            'title' => $document->title,
-            'collection' => $metadata['collection'] ?? null,
-            'case_number' => $metadata['case_number'] ?? $metadata['collection'] ?? null,
-            'canonical_basename' => $metadata['canonical_basename'] ?? null,
-            'source_file' => $metadata['source_file'] ?? null,
-            '_vectors' => [
-                'default' => [
-                    'embeddings' => [$chunk->embedding],
-                ],
-            ],
-        ];
-
-        $this->index($index)->addDocuments([$payload]);
     }
 
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection
@@ -117,6 +127,52 @@ class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
         $this->index($index)->deleteDocument((string) $chunk->id);
     }
 
+    public function deleteByDocument(VectorDocument $document): void
+    {
+        $document->loadMissing('vectorIndex');
+
+        $index = $document->vectorIndex;
+
+        if ($index === null) {
+            return;
+        }
+
+        $this->ensureIndex($index);
+
+        $escapedId = str_replace('"', '\\"', (string) $document->id);
+
+        $this->index($index)->deleteDocuments([
+            'filter' => 'vector_document_id = "'.$escapedId.'"',
+        ]);
+    }
+
+    protected function buildPayload(VectorChunk $chunk): array
+    {
+        $document = $chunk->vectorDocument;
+        $metadata = is_array($document?->metadata) ? $document->metadata : [];
+
+        $payload = [
+            'id' => (string) $chunk->id,
+            'content' => $chunk->content,
+            'chunk_index' => $chunk->chunk_index,
+            'title' => $document?->title,
+            'vector_document_id' => (string) $document?->id,
+            '_vectors' => [
+                'default' => [
+                    'embeddings' => [$chunk->embedding],
+                ],
+            ],
+        ];
+
+        foreach ($metadata as $key => $value) {
+            if (is_scalar($value) || $value === null) {
+                $payload[(string) $key] = $value;
+            }
+        }
+
+        return $payload;
+    }
+
     protected function ensureIndex(VectorIndex $index): void
     {
         $indexName = $index->name;
@@ -134,19 +190,20 @@ class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
         }
 
         $this->index($index)->updateSettings([
-            'filterableAttributes' => [
+            'filterableAttributes' => config('vector-search.drivers.meilisearch.filterable_attributes', [
+                'vector_document_id',
+                'chunk_index',
+                'title',
                 'collection',
                 'case_number',
                 'canonical_basename',
-                'chunk_index',
-                'title',
                 'source_file',
-            ],
-            'searchableAttributes' => [
+            ]),
+            'searchableAttributes' => config('vector-search.drivers.meilisearch.searchable_attributes', [
                 'content',
                 'title',
                 'canonical_basename',
-            ],
+            ]),
         ]);
 
         $this->ensuredIndexes[$indexName] = true;

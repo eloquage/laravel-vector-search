@@ -12,7 +12,7 @@ enum ChunkingStrategy: string implements HasLabel
     case TOKEN_LIMIT = 'token_limit';
     case SENTENCE = 'sentence';
 
-    public function getLabel(): ?string
+    public function getLabel(): string
     {
         return match ($this) {
             self::RECURSIVE_CHARACTER => 'Recursive Character',

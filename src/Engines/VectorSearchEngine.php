@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Eloquage\LaravelVectorSearch\Engines;
 
 use Eloquage\LaravelVectorSearch\Facades\LaravelVectorSearch;
+use Eloquage\LaravelVectorSearch\Models\VectorChunk;
+use Eloquage\LaravelVectorSearch\Models\VectorDocument;
+use Eloquage\LaravelVectorSearch\Services\VectorDocumentPurger;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -36,27 +39,32 @@ class VectorSearchEngine extends Engine
         $indexName = $builder->index ?? config('vector-search.scout.default_index',
             config('vector-search.default_index', 'default'));
 
-        $chunks = LaravelVectorSearch::forIndex((string) $indexName)->search(
-            $builder->query,
-            $builder->limit ?? 10,
-        );
+        $chunks = VectorChunk::query()
+            ->whereIn('id', LaravelVectorSearch::forIndex((string) $indexName)->search(
+                $builder->query,
+                $builder->limit ?? 10,
+            )->pluck('id'))
+            ->with('vectorDocument.source')
+            ->get();
 
         return $chunks
-            ->load('vectorDocument.source')
-            ->map(function ($chunk): ?array {
+            ->map(function (VectorChunk $chunk): ?array {
                 $source = $chunk->vectorDocument?->source;
 
-                if ($source === null) {
+                if ($source === null || ! method_exists($source, 'getScoutKey')) {
                     return null;
                 }
 
+                /** @var class-string $sourceType */
+                $sourceType = $source::class;
+
                 return [
-                    'source_type' => $source::class,
+                    'source_type' => $sourceType,
                     'source_key' => $source->getScoutKey(),
                 ];
             })
             ->filter()
-            ->unique('source_key')
+            ->unique(fn (array $item): mixed => $item['source_key'])
             ->values();
     }
 
@@ -70,10 +78,16 @@ class VectorSearchEngine extends Engine
             return $model->newCollection();
         }
 
+        if (! method_exists($model, 'getScoutModelsByIds')) {
+            return $model->newCollection();
+        }
+
         $keys = $results->pluck('source_key')->values()->all();
 
         return $model->getScoutModelsByIds($builder, $keys)
-            ->sortBy(fn (Model $found): int|false => array_search($found->getScoutKey(), $keys, true))
+            ->sortBy(fn (Model $found): int|false => method_exists($found, 'getScoutKey')
+                ? array_search($found->getScoutKey(), $keys, true)
+                : false)
             ->values();
     }
 
@@ -101,19 +115,33 @@ class VectorSearchEngine extends Engine
 
     public function flush($model): void
     {
-        $model::query()->each(function (Model $record): void {
-            if (method_exists($record, 'vectorDocuments')) {
-                $record->vectorDocuments()->delete();
-            }
+        $purger = app(VectorDocumentPurger::class);
+
+        $model::query()->chunkById(100, function (EloquentCollection $records) use ($purger): void {
+            $records->each(function (Model $record) use ($purger): void {
+                if (! method_exists($record, 'vectorDocuments')) {
+                    return;
+                }
+
+                $record->vectorDocuments()->each(function (VectorDocument $document) use ($purger): void {
+                    $purger->purge($document);
+                });
+            });
         });
     }
 
     public function delete($models): void
     {
-        $models->each(function (Model $model): void {
-            if (method_exists($model, 'vectorDocuments')) {
-                $model->vectorDocuments()->delete();
+        $purger = app(VectorDocumentPurger::class);
+
+        $models->each(function (Model $model) use ($purger): void {
+            if (! method_exists($model, 'vectorDocuments')) {
+                return;
             }
+
+            $model->vectorDocuments()->each(function (VectorDocument $document) use ($purger): void {
+                $purger->purge($document);
+            });
         });
     }
 

@@ -43,6 +43,7 @@ it('upserts chunk metadata to meilisearch', function () {
                 ->and($documents[0]['content'])->toBe('witness statement')
                 ->and($documents[0]['collection'])->toBe('479-26-0T9MTS')
                 ->and($documents[0]['canonical_basename'])->toBe('chunk-a')
+                ->and($documents[0]['vector_document_id'])->toBeString()
                 ->and($documents[0]['_vectors']['default']['embeddings'][0])->toBe([0.1, 0.2, 0.3]);
 
             return true;
@@ -58,6 +59,61 @@ it('upserts chunk metadata to meilisearch', function () {
 
     $driver = new MeilisearchDriver('http://localhost:7700', null, $client);
     $driver->upsert($chunk);
+});
+
+it('batch upserts chunks to meilisearch', function () {
+    $index = VectorIndex::factory()->create([
+        'name' => 'batch-index',
+        'driver' => IndexDriver::MEILISEARCH,
+    ]);
+
+    $document = VectorDocument::factory()->for($index, 'vectorIndex')->create();
+    $chunks = VectorChunk::factory()->for($document, 'vectorDocument')->count(2)->sequence(
+        ['chunk_index' => 0, 'embedding' => [0.1]],
+        ['chunk_index' => 1, 'embedding' => [0.2]],
+    )->create();
+
+    $indexes = Mockery::mock(Indexes::class);
+    $indexes->shouldReceive('addDocuments')
+        ->once()
+        ->with(Mockery::on(fn (array $documents): bool => count($documents) === 2))
+        ->andReturn(['taskUid' => 1]);
+    $indexes->shouldReceive('updateSettings')->once();
+
+    $client = Mockery::mock(Client::class);
+    $client->shouldReceive('getIndex')->once()->andThrow(new RuntimeException('missing'));
+    $client->shouldReceive('createIndex')->once();
+    $client->shouldReceive('index')->andReturn($indexes);
+
+    $driver = new MeilisearchDriver('http://localhost:7700', null, $client);
+    $driver->upsertMany($chunks);
+});
+
+it('deletes meilisearch documents by vector document id', function () {
+    $index = VectorIndex::factory()->create([
+        'name' => 'document-archive',
+        'driver' => IndexDriver::MEILISEARCH,
+    ]);
+
+    $document = VectorDocument::factory()->for($index, 'vectorIndex')->create();
+
+    $indexes = Mockery::mock(Indexes::class);
+    $indexes->shouldReceive('updateSettings')->once();
+    $indexes->shouldReceive('deleteDocuments')
+        ->once()
+        ->with(Mockery::on(function (array $params) use ($document): bool {
+            expect($params['filter'])->toBe('vector_document_id = "'.$document->id.'"');
+
+            return true;
+        }))
+        ->andReturn(['taskUid' => 1]);
+
+    $client = Mockery::mock(Client::class);
+    $client->shouldReceive('getIndex')->once()->andReturn(Mockery::mock(Indexes::class));
+    $client->shouldReceive('index')->andReturn($indexes);
+
+    $driver = new MeilisearchDriver('http://localhost:7700', null, $client);
+    $driver->deleteByDocument($document);
 });
 
 it('keyword searches meilisearch and maps hits to chunks', function () {
@@ -136,7 +192,7 @@ it('does not upsert chunks without embeddings', function () {
 it('builds filter strings for keyword search', function () {
     $index = VectorIndex::factory()->create(['driver' => IndexDriver::MEILISEARCH]);
     $document = VectorDocument::factory()->for($index, 'vectorIndex')->create();
-    $chunk = VectorChunk::factory()->for($document, 'vectorDocument')->create();
+    VectorChunk::factory()->for($document, 'vectorDocument')->create();
 
     $searchResult = Mockery::mock(SearchResult::class);
     $searchResult->shouldReceive('getHits')->andReturn([]);
