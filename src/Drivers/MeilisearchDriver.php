@@ -182,7 +182,11 @@ class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
         return VectorChunk::query()
             ->whereIn('id', $ids)
             ->get()
-            ->sortBy(fn (VectorChunk $chunk): int => array_search($chunk->id, $ids, true) ?: PHP_INT_MAX)
+            ->sortBy(function (VectorChunk $chunk) use ($ids): int {
+                $position = array_search($chunk->id, $ids, true);
+
+                return $position === false ? PHP_INT_MAX : $position;
+            })
             ->values();
     }
 

@@ -13,7 +13,7 @@ enum EmbeddingProvider: string implements HasLabel
     case OLLAMA = 'ollama';
     case NULL_PROVIDER = 'null';
 
-    public function getLabel(): ?string
+    public function getLabel(): string
     {
         return match ($this) {
             self::OPENAI => 'OpenAI',

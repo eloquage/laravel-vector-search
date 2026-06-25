@@ -31,8 +31,7 @@ class PgVectorDriver implements VectorDriverInterface
 
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection
     {
-        $query = VectorChunk::query()
-            ->when($this->connection !== null, fn ($builder) => $builder->on($this->connection))
+        $query = ($this->connection !== null ? VectorChunk::on($this->connection) : VectorChunk::query())
             ->join('vector_documents', 'vector_chunks.vector_document_id', '=', 'vector_documents.id')
             ->where('vector_documents.vector_index_id', $index->id)
             ->whereNotNull('vector_chunks.embedding')
@@ -50,8 +49,7 @@ class PgVectorDriver implements VectorDriverInterface
 
     protected function supportsDatabaseVectorSearch(): bool
     {
-        return Schema::connection($this->connection)->getConnection()->getDriverName() === 'pgsql'
-            && method_exists(VectorChunk::query()->getQuery(), 'whereVectorSimilarTo');
+        return Schema::connection($this->connection)->getConnection()->getDriverName() === 'pgsql';
     }
 
     /**

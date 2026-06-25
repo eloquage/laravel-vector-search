@@ -55,7 +55,7 @@ class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
             );
         }
 
-        /** @var array<int, array{embedding: array<float>}> $data */
+        /** @var array<int, array{embedding: array<float>, index?: int}> $data */
         $data = $response->json('data', []);
 
         usort($data, fn (array $left, array $right): int => ($left['index'] ?? 0) <=> ($right['index'] ?? 0));

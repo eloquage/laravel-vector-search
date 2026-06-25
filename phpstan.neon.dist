@@ -8,3 +8,10 @@ parameters:
         - config
         - database
     tmpDir: build/phpstan
+    ignoreErrors:
+        -
+            message: '#Called ''env'' outside of the config directory#'
+            path: config/*
+        -
+            message: '#Trait Eloquage\\LaravelVectorSearch\\Concerns\\SearchableVector is used zero times#'
+            path: src/Concerns/SearchableVector.php

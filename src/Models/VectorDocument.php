@@ -12,7 +12,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property string $vector_index_id
+ * @property string|null $source_type
+ * @property string|null $source_id
+ * @property string|null $title
+ * @property string|null $content
+ * @property array<string, mixed>|null $metadata
+ * @property DocumentStatus $status
+ * @property string|null $error_log
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
+ * @property-read VectorIndex|null $vectorIndex
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, VectorChunk> $chunks
+ */
 class VectorDocument extends Model
 {
     use HasFactory;
@@ -41,11 +58,17 @@ class VectorDocument extends Model
         'status' => DocumentStatus::class,
     ];
 
+    /**
+     * @return BelongsTo<VectorIndex, $this>
+     */
     public function vectorIndex(): BelongsTo
     {
         return $this->belongsTo(VectorIndex::class);
     }
 
+    /**
+     * @return HasMany<VectorChunk, $this>
+     */
     public function chunks(): HasMany
     {
         return $this->hasMany(VectorChunk::class);

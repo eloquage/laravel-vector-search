@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Eloquage\LaravelVectorSearch\Engines;
 
 use Eloquage\LaravelVectorSearch\Facades\LaravelVectorSearch;
+use Eloquage\LaravelVectorSearch\Models\VectorChunk;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -28,9 +29,6 @@ class VectorSearchEngine extends Engine
         return $this->chunkHits($builder);
     }
 
-    /**
-     * @return Collection<int, array{source_type: class-string, source_key: mixed}>
-     */
     protected function chunkHits(Builder $builder): Collection
     {
         $indexName = $builder->index ?? config('vector-search.scout.default_index',
@@ -41,17 +39,27 @@ class VectorSearchEngine extends Engine
             $builder->limit ?? 10,
         );
 
-        return $chunks
-            ->load('vectorDocument.source')
-            ->map(function ($chunk): ?array {
-                $source = $chunk->vectorDocument?->source;
+        if ($chunks->isEmpty()) {
+            return collect();
+        }
+
+        return VectorChunk::query()
+            ->whereIn('id', $chunks->pluck('id'))
+            ->with('vectorDocument.source')
+            ->get()
+            ->map(function (VectorChunk $chunk): ?array {
+                $source = $chunk->vectorDocument->source;
 
                 if ($source === null) {
                     return null;
                 }
 
+                if (! method_exists($source, 'getScoutKey')) {
+                    return null;
+                }
+
                 return [
-                    'source_type' => $source::class,
+                    'source_type' => get_class($source),
                     'source_key' => $source->getScoutKey(),
                 ];
             })
@@ -72,8 +80,20 @@ class VectorSearchEngine extends Engine
 
         $keys = $results->pluck('source_key')->values()->all();
 
+        if (! method_exists($model, 'getScoutModelsByIds')) {
+            return $model->newCollection();
+        }
+
         return $model->getScoutModelsByIds($builder, $keys)
-            ->sortBy(fn (Model $found): int|false => array_search($found->getScoutKey(), $keys, true))
+            ->sortBy(function (Model $found) use ($keys): int {
+                if (! method_exists($found, 'getScoutKey')) {
+                    return PHP_INT_MAX;
+                }
+
+                $position = array_search($found->getScoutKey(), $keys, true);
+
+                return $position === false ? PHP_INT_MAX : $position;
+            })
             ->values();
     }
 

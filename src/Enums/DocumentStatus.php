@@ -14,7 +14,7 @@ enum DocumentStatus: string implements HasLabel
     case COMPLETED = 'completed';
     case FAILED = 'failed';
 
-    public function getLabel(): ?string
+    public function getLabel(): string
     {
         return match ($this) {
             self::DRAFT => 'Draft',
