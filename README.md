@@ -9,15 +9,34 @@ Semantic vector search for Laravel: chunk documents, generate embeddings, store 
 
 Optional companion packages:
 
-| Package                                                                                     | Purpose                                                      |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [`eloquage/filament-vector-search`](https://github.com/eloquage/filament-vector-search)     | Filament v5 admin UI — indexes, documents, search playground |
-| [`eloquage/laravel-vector-search-ai`](https://github.com/eloquage/laravel-vector-search-ai) | Laravel AI SDK tools, agents, and MCP server                 |
+| Package                                                                                                   | Purpose                                                      |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [`eloquage/filament-vector-search`](https://github.com/eloquage/filament-vector-search)                   | Filament v5 admin UI — indexes, documents, search playground |
+| [`eloquage/laravel-vector-search-ai`](https://github.com/eloquage/laravel-vector-search-ai)               | Laravel AI SDK tools, agents, and MCP server                 |
+| [`eloquage/laravel-document-archive-vector`](https://github.com/eloquage/laravel-document-archive-vector) | Document archive semantic + keyword search bridge            |
 
 ## Architecture
 
-```
-VectorIndex → VectorDocument → VectorChunk → embedding provider → vector driver → search()
+```mermaid
+flowchart LR
+    subgraph indexing [IndexingPipeline]
+        VI[VectorIndex]
+        VD[VectorDocument]
+        PVD[ProcessVectorDocument]
+        EVC[EmbedVectorChunks]
+        VI --> VD --> PVD --> EVC
+    end
+    subgraph providers [Providers]
+        EP[EmbeddingProviderManager]
+        VDM[VectorDriverManager]
+    end
+    EVC --> EP
+    EVC --> VDM
+    subgraph search [Search]
+        VSI[VectorSearchIndex]
+        VSI --> EP
+        VSI --> VDM
+    end
 ```
 
 **Indexing pipeline** (queued by default):
@@ -85,6 +104,22 @@ MEILISEARCH_HOST=http://localhost:7700
 MEILISEARCH_KEY=masterKey
 ```
 
+**Pinecone**
+
+```dotenv
+VECTOR_SEARCH_DRIVER=pinecone
+PINECONE_API_KEY=pc-...
+PINECONE_INDEX_HOST=https://your-index-xxxx.svc.region.pinecone.io
+```
+
+**Cohere embeddings**
+
+```dotenv
+VECTOR_SEARCH_EMBEDDING_PROVIDER=cohere
+COHERE_API_KEY=...
+COHERE_EMBEDDING_MODEL=embed-english-v3.0
+```
+
 Start a queue worker before indexing documents in production:
 
 ```bash
@@ -95,20 +130,25 @@ For pgvector, optionally publish and run the HNSW index migration stub (`add_vec
 
 ## Configuration
 
-| Config key                     | Env variable                                                                                          | Default           | Description                                                   |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------- |
-| `default_driver`               | `VECTOR_SEARCH_DRIVER`                                                                                | `postgres_vector` | Default vector storage driver                                 |
-| `default_embedding_provider`   | `VECTOR_SEARCH_EMBEDDING_PROVIDER`                                                                    | `openai`          | Default embedding provider                                    |
-| `default_index`                | `VECTOR_SEARCH_DEFAULT_INDEX`                                                                         | `default`         | Fallback index name                                           |
-| `scout.default_index`          | `VECTOR_SEARCH_SCOUT_INDEX`                                                                           | —                 | Index used by Scout engine                                    |
-| `embedding_providers.openai.*` | `OPENAI_API_KEY`, `OPENAI_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_BATCH_SIZE`, `OPENAI_EMBEDDING_TIMEOUT` | —                 | OpenAI embedding settings                                     |
-| `embedding_providers.ollama.*` | `OLLAMA_HOST`, `OLLAMA_EMBEDDING_MODEL`, `OLLAMA_EMBEDDING_CONCURRENCY`, `OLLAMA_EMBEDDING_TIMEOUT`   | —                 | Ollama embedding settings                                     |
-| `embedding_providers.cohere.*` | `COHERE_API_KEY`, `COHERE_EMBEDDING_MODEL`                                                            | —                 | Cohere settings (provider not implemented)                    |
-| `drivers.pgvector.connection`  | `VECTOR_DB_CONNECTION`                                                                                | —                 | DB connection for pgvector (falls back to default connection) |
-| `drivers.meilisearch.*`        | `MEILISEARCH_HOST`, `MEILISEARCH_KEY`, `MEILISEARCH_BATCH_SIZE`                                       | —                 | Meilisearch connection and index settings                     |
-| `drivers.pinecone.*`           | `PINECONE_API_KEY`, `PINECONE_ENVIRONMENT`                                                            | —                 | Pinecone settings (driver not implemented)                    |
-| `splitters`                    | —                                                                                                     | built-in classes  | Custom text splitter registration                             |
-| `testing.embedding_dimensions` | —                                                                                                     | `8`               | Vector size for `null` embedding provider in tests            |
+| Config key                      | Env variable                                                            | Default           | Description                                                    |
+| ------------------------------- | ----------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------- |
+| `default_driver`                | `VECTOR_SEARCH_DRIVER`                                                  | `postgres_vector` | Default vector storage driver                                  |
+| `default_embedding_provider`    | `VECTOR_SEARCH_EMBEDDING_PROVIDER`                                      | `openai`          | Default embedding provider                                     |
+| `default_index`                 | `VECTOR_SEARCH_DEFAULT_INDEX`                                           | `default`         | Fallback index name                                            |
+| `allow_null_embedding_provider` | `VECTOR_SEARCH_ALLOW_NULL_EMBEDDING`                                    | `false`           | Allow null provider outside local/testing                      |
+| `strict_boot_validation`        | `VECTOR_SEARCH_STRICT_BOOT_VALIDATION`                                  | `false`           | Throw (not warn) on boot validation failures                   |
+| `embedding_batch_size`          | `VECTOR_SEARCH_EMBEDDING_BATCH_SIZE`                                    | `100`             | Max texts per embedding API request                            |
+| `embedding_timeout`             | `VECTOR_SEARCH_EMBEDDING_TIMEOUT`                                       | `60`              | HTTP timeout (seconds) for embedding providers                 |
+| `index_defaults.dimensions`     | `VECTOR_SEARCH_INDEX_DIMENSIONS`                                        | `1536`            | Default vector column size for migrations                      |
+| `scout.default_index`           | `VECTOR_SEARCH_SCOUT_INDEX`                                             | —                 | Index used by Scout engine                                     |
+| `embedding_providers.openai.*`  | `OPENAI_API_KEY`, `OPENAI_EMBEDDING_MODEL`                              | —                 | OpenAI embedding settings                                      |
+| `embedding_providers.ollama.*`  | `OLLAMA_HOST`, `OLLAMA_EMBEDDING_MODEL`, `OLLAMA_EMBEDDING_CONCURRENCY` | —                 | Ollama embedding settings                                      |
+| `embedding_providers.cohere.*`  | `COHERE_API_KEY`, `COHERE_EMBEDDING_MODEL`                              | —                 | Cohere embedding settings                                      |
+| `drivers.pgvector.connection`   | `VECTOR_DB_CONNECTION`                                                  | —                 | DB connection for pgvector                                     |
+| `drivers.meilisearch.*`         | `MEILISEARCH_HOST`, `MEILISEARCH_KEY`, `MEILISEARCH_BATCH_SIZE`         | —                 | Meilisearch connection settings                                |
+| `drivers.pinecone.*`            | `PINECONE_API_KEY`, `PINECONE_INDEX_HOST`                               | —                 | Pinecone data-plane host + API key                             |
+| `splitters`                     | —                                                                       | `[]`              | Custom `TextSplitterInterface` classes keyed by strategy value |
+| `testing.embedding_dimensions`  | —                                                                       | `8`               | Vector size for null provider in tests                         |
 
 The config key for the pgvector connection is `drivers.pgvector`, but the driver enum value is `postgres_vector`. Both `postgres_vector` and `pgvector` resolve to the same driver in `VectorDriverManager`.
 
@@ -118,11 +158,11 @@ Built-in text splitters: `recursive_character`, `token_limit`, `sentence`.
 
 Each `VectorIndex` record stores its own `driver`. The application default is `config('vector-search.default_driver')`.
 
-| Driver              | Enum value        | Status          | Keyword search        |
-| ------------------- | ----------------- | --------------- | --------------------- |
-| PostgreSQL/pgvector | `postgres_vector` | Implemented     | No                    |
-| Meilisearch         | `meilisearch`     | Implemented     | Yes (`keywordSearch`) |
-| Pinecone            | `pinecone`        | Not implemented | —                     |
+| Driver              | Enum value        | Status      | Keyword search        |
+| ------------------- | ----------------- | ----------- | --------------------- |
+| PostgreSQL/pgvector | `postgres_vector` | Implemented | No                    |
+| Meilisearch         | `meilisearch`     | Implemented | Yes (`keywordSearch`) |
+| Pinecone            | `pinecone`        | Implemented | No                    |
 
 Per-index driver selection is set when creating the index:
 
@@ -150,10 +190,30 @@ VectorIndex::query()->create([
 | -------------- | -------- | ---------------------------------------- |
 | OpenAI         | `openai` | Implemented                              |
 | Ollama         | `ollama` | Implemented                              |
+| Cohere         | `cohere` | Implemented                              |
 | Null (testing) | `null`   | Implemented — deterministic fake vectors |
-| Cohere         | `cohere` | Not implemented                          |
 
-Each index stores `embedding_provider`, `embedding_model`, and optional `dimensions`. At search time, `VectorSearchIndex` resolves the embedder from the index's `embedding_provider` value.
+Each index stores `embedding_provider`, `embedding_model`, and optional `dimensions`. At search time, `VectorSearchIndex` uses `embedQuery()` for query vectors (Cohere uses `search_query` input type).
+
+## Index naming across packages
+
+| Package                      | Config key            | Default            |
+| ---------------------------- | --------------------- | ------------------ |
+| laravel-vector-search        | `default_index`       | `default`          |
+| laravel-document-archive     | `vector_index`        | `document-archive` |
+| laravel-document-archive-mcp | `vector_index`        | `document-archive` |
+| Scout (`SearchableVector`)   | `scout.default_index` | —                  |
+
+Use the same index name across archive packages so MCP tools, archive indexing, and search resolve the same `VectorIndex` record.
+
+## Events and archive integration
+
+| Event                   | When                                       |
+| ----------------------- | ------------------------------------------ |
+| `VectorDocumentIndexed` | `EmbedVectorChunks` completes successfully |
+| `VectorDocumentFailed`  | Chunking or embedding fails                |
+
+Listen to these events in host apps or `eloquage/laravel-document-archive-vector` to update manifest status or trigger downstream workflows. Prefer the vector index search path over legacy chunk-model cosine fallback in `DocumentArchiveSearchService`.
 
 ## Indexing: queued vs sync
 
@@ -246,7 +306,7 @@ $chunks = LaravelVectorSearch::forIndex($index)
 
 ## End-to-end example
 
-This mirrors how [`eloquage/laravel-document-archive`](https://github.com/eloquage/laravel-document-archive) uses the package via `DocumentArchiveSearchService`: a named index, documents with collection metadata, semantic search through the facade, and optional Meilisearch keyword search.
+This mirrors how [`eloquage/laravel-document-archive-vector`](https://github.com/eloquage/laravel-document-archive-vector) uses the package via `DocumentArchiveSearchService`: a named index, documents with collection metadata, semantic search through the facade, and optional Meilisearch keyword search.
 
 ```php
 use Eloquage\LaravelVectorSearch\Enums\ChunkingStrategy;
@@ -304,7 +364,7 @@ if ($index->driver === IndexDriver::MEILISEARCH) {
 }
 ```
 
-For empty-index handling, embedding credential checks, and cosine similarity rescoring, see `DocumentArchiveSearchService` in `eloquage/laravel-document-archive`.
+For empty-index handling, embedding credential checks, and collection filtering, see `DocumentArchiveSearchService` in `eloquage/laravel-document-archive-vector`.
 
 ## Laravel Scout integration
 

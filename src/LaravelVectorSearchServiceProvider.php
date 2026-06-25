@@ -9,8 +9,11 @@ use Eloquage\LaravelVectorSearch\Contracts\VectorDriverInterface;
 use Eloquage\LaravelVectorSearch\Managers\EmbeddingProviderManager;
 use Eloquage\LaravelVectorSearch\Managers\VectorDriverManager;
 use Eloquage\LaravelVectorSearch\Models\VectorDocument;
+use Eloquage\LaravelVectorSearch\Models\VectorIndex;
 use Eloquage\LaravelVectorSearch\Observers\VectorDocumentObserver;
+use Eloquage\LaravelVectorSearch\Observers\VectorIndexObserver;
 use Eloquage\LaravelVectorSearch\Services\VectorChunkCleanup;
+use Eloquage\LaravelVectorSearch\Support\VectorSearchConfigValidator;
 use Laravel\Scout\EngineManager;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -36,6 +39,7 @@ class LaravelVectorSearchServiceProvider extends PackageServiceProvider
         $this->app->singleton(EmbeddingProviderManager::class);
         $this->app->singleton(VectorChunkCleanup::class);
         $this->app->singleton(LaravelVectorSearch::class);
+        $this->app->singleton(VectorSearchConfigValidator::class);
 
         $this->app->bind(VectorDriverInterface::class,
             fn ($app): VectorDriverInterface => $app->make(VectorDriverManager::class)->driver());
@@ -51,6 +55,11 @@ class LaravelVectorSearchServiceProvider extends PackageServiceProvider
         );
 
         VectorDocument::observe(VectorDocumentObserver::class);
+        VectorIndex::observe(VectorIndexObserver::class);
+
+        if (! $this->app->runningUnitTests()) {
+            $this->app->make(VectorSearchConfigValidator::class)->validate();
+        }
 
         if (class_exists(EngineManager::class)) {
             $this->app->register(ScoutVectorSearchServiceProvider::class);

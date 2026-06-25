@@ -8,6 +8,7 @@ use Eloquage\LaravelVectorSearch\Contracts\SupportsKeywordSearch;
 use Eloquage\LaravelVectorSearch\Contracts\VectorDriverInterface;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
+use Eloquage\LaravelVectorSearch\Support\ChunkMetadataMapper;
 use Illuminate\Support\Collection;
 use Meilisearch\Client;
 use Meilisearch\Endpoints\Indexes;
@@ -28,40 +29,51 @@ class MeilisearchDriver implements SupportsKeywordSearch, VectorDriverInterface
 
     public function upsert(VectorChunk $chunk): void
     {
-        if (empty($chunk->embedding)) {
+        $this->upsertBatch(new Collection([$chunk]));
+    }
+
+    public function upsertBatch(Collection $chunks): void
+    {
+        $chunks = $chunks->filter(fn (VectorChunk $chunk): bool => ! empty($chunk->embedding));
+
+        if ($chunks->isEmpty()) {
             return;
         }
 
-        $chunk->loadMissing('vectorDocument.vectorIndex');
+        $chunks->each->loadMissing('vectorDocument.vectorIndex');
 
-        $document = $chunk->vectorDocument;
-        $index = $document?->vectorIndex;
+        $grouped = $chunks->groupBy(
+            fn (VectorChunk $chunk): string => $chunk->vectorDocument->vectorIndex->name ?? 'default'
+        );
 
-        if ($document === null || $index === null) {
-            return;
+        foreach ($grouped as $indexName => $indexChunks) {
+            $firstChunk = $indexChunks->first();
+            $index = $firstChunk?->vectorDocument?->vectorIndex;
+
+            if ($index === null) {
+                continue;
+            }
+
+            $this->ensureIndex($index);
+
+            $payloads = $indexChunks
+                ->map(function (VectorChunk $chunk): ?array {
+                    $document = $chunk->vectorDocument;
+
+                    if ($document === null) {
+                        return null;
+                    }
+
+                    return ChunkMetadataMapper::toMeilisearchPayload($chunk, $document);
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            if ($payloads !== []) {
+                $this->index($index)->addDocuments($payloads);
+            }
         }
-
-        $this->ensureIndex($index);
-
-        $metadata = is_array($document->metadata) ? $document->metadata : [];
-
-        $payload = [
-            'id' => (string) $chunk->id,
-            'content' => $chunk->content,
-            'chunk_index' => $chunk->chunk_index,
-            'title' => $document->title,
-            'collection' => $metadata['collection'] ?? null,
-            'case_number' => $metadata['case_number'] ?? $metadata['collection'] ?? null,
-            'canonical_basename' => $metadata['canonical_basename'] ?? null,
-            'source_file' => $metadata['source_file'] ?? null,
-            '_vectors' => [
-                'default' => [
-                    'embeddings' => [$chunk->embedding],
-                ],
-            ],
-        ];
-
-        $this->index($index)->addDocuments([$payload]);
     }
 
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection

@@ -8,6 +8,14 @@ return [
 
     'default_index' => env('VECTOR_SEARCH_DEFAULT_INDEX', 'default'),
 
+    'allow_null_embedding_provider' => (bool) env('VECTOR_SEARCH_ALLOW_NULL_EMBEDDING', false),
+
+    'strict_boot_validation' => (bool) env('VECTOR_SEARCH_STRICT_BOOT_VALIDATION', false),
+
+    'embedding_batch_size' => (int) env('VECTOR_SEARCH_EMBEDDING_BATCH_SIZE', 100),
+
+    'embedding_timeout' => (int) env('VECTOR_SEARCH_EMBEDDING_TIMEOUT', 60),
+
     'embedding_providers' => [
         'openai' => [
             'api_key' => env('OPENAI_API_KEY'),
@@ -20,6 +28,7 @@ return [
         'ollama' => [
             'host' => env('OLLAMA_HOST', 'http://localhost:11434'),
             'model' => env('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'),
+            'concurrency' => (int) env('OLLAMA_EMBEDDING_CONCURRENCY', 4),
         ],
     ],
 
@@ -30,11 +39,16 @@ return [
         'meilisearch' => [
             'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
             'key' => env('MEILISEARCH_KEY'),
+            'batch_size' => (int) env('MEILISEARCH_BATCH_SIZE', 100),
         ],
         'pinecone' => [
             'api_key' => env('PINECONE_API_KEY'),
-            'environment' => env('PINECONE_ENVIRONMENT'),
+            'index_host' => env('PINECONE_INDEX_HOST'),
         ],
+    ],
+
+    'splitters' => [
+        // 'custom_strategy' => \App\VectorSearch\CustomSplitter::class,
     ],
 
     'scout' => [

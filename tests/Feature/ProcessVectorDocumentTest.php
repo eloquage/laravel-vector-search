@@ -1,7 +1,6 @@
 <?php
 
 use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
-use Eloquage\LaravelVectorSearch\Enums\EmbeddingProvider;
 use Eloquage\LaravelVectorSearch\Jobs\EmbedVectorChunks;
 use Eloquage\LaravelVectorSearch\Jobs\ProcessVectorDocument;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
@@ -24,9 +23,7 @@ it('deletes all chunk rows for a document', function () {
 it('rechunks document content on process', function () {
     Queue::fake([EmbedVectorChunks::class]);
 
-    $index = VectorIndex::factory()->create([
-        'embedding_provider' => EmbeddingProvider::NULL_PROVIDER,
-    ]);
+    $index = VectorIndex::factory()->nullProvider()->create();
 
     $document = VectorDocument::factory()->for($index, 'vectorIndex')->create([
         'content' => 'Chunk this sentence for vector search.',
@@ -46,8 +43,7 @@ it('rechunks document content on process', function () {
 it('queues embedding for empty content without chunks', function () {
     Queue::fake([EmbedVectorChunks::class]);
 
-    $index = VectorIndex::factory()->create([
-        'embedding_provider' => EmbeddingProvider::NULL_PROVIDER,
+    $index = VectorIndex::factory()->nullProvider()->create([
         'chunk_size' => 1000,
     ]);
 
@@ -62,4 +58,42 @@ it('queues embedding for empty content without chunks', function () {
         ->and($document->fresh()->chunks)->toBeEmpty();
 
     Queue::assertPushed(EmbedVectorChunks::class);
+});
+
+it('dispatches embedding job after processing commits', function () {
+    Queue::fake([EmbedVectorChunks::class]);
+
+    $index = VectorIndex::factory()->nullProvider()->create();
+    $document = VectorDocument::factory()->for($index, 'vectorIndex')->create([
+        'content' => 'Deferred embedding dispatch test content.',
+        'status' => DocumentStatus::DRAFT,
+    ]);
+
+    ProcessVectorDocument::dispatchSync($document);
+
+    Queue::assertPushed(EmbedVectorChunks::class);
+});
+
+it('replaces stale chunks when reprocessing a document', function () {
+    Queue::fake([EmbedVectorChunks::class]);
+
+    $index = VectorIndex::factory()->nullProvider()->create();
+    $document = VectorDocument::factory()->for($index, 'vectorIndex')->create([
+        'content' => 'First version of the document content.',
+        'status' => DocumentStatus::DRAFT,
+    ]);
+
+    $job = app(ProcessVectorDocument::class, ['document' => $document]);
+    $job->handle(app(VectorChunkCleanup::class));
+
+    $document->update(['content' => 'Second version with different chunk boundaries for testing.']);
+    $document->refresh();
+
+    $job = app(ProcessVectorDocument::class, ['document' => $document]);
+    $job->handle(app(VectorChunkCleanup::class));
+
+    $indices = $document->fresh()->chunks->pluck('chunk_index')->sort()->values()->all();
+
+    expect($indices)->toBe(array_values(array_unique($indices)))
+        ->and($document->fresh()->chunks->min('chunk_index'))->toBe(0);
 });

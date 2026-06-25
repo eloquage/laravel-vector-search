@@ -19,6 +19,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Throwable;
 
 class ProcessVectorDocument implements ShouldBeUnique, ShouldQueue
@@ -49,28 +51,27 @@ class ProcessVectorDocument implements ShouldBeUnique, ShouldQueue
             $index = $this->document->vectorIndex;
             $splitter = $this->resolveSplitter($index->chunking_strategy);
 
-            $cleanup->purgeDocumentChunks($this->document);
+            DB::transaction(function () use ($cleanup, $splitter, $index): void {
+                $cleanup->purgeDocumentChunks($this->document);
 
-            // Split content
-            $chunkTexts = $splitter->split(
-                $this->document->content,
-                $index->chunk_size,
-                $index->chunk_overlap
-            );
+                $chunkTexts = $splitter->split(
+                    $this->document->content,
+                    $index->chunk_size,
+                    $index->chunk_overlap
+                );
 
-            // Save chunk records without embeddings
-            foreach ($chunkTexts as $i => $text) {
-                $this->document->chunks()->create([
-                    'chunk_index' => $i,
-                    'content' => $text,
-                    'embedding' => null,
-                ]);
-            }
+                foreach ($chunkTexts as $i => $text) {
+                    $this->document->chunks()->create([
+                        'chunk_index' => $i,
+                        'content' => $text,
+                        'embedding' => null,
+                    ]);
+                }
 
-            // Update status and dispatch embedding job
-            $this->document->update(['status' => DocumentStatus::EMBEDDING]);
+                $this->document->update(['status' => DocumentStatus::EMBEDDING]);
+            });
 
-            EmbedVectorChunks::dispatch($this->document);
+            EmbedVectorChunks::dispatch($this->document)->afterCommit();
 
         } catch (Throwable $e) {
             $this->document->update([
@@ -86,6 +87,23 @@ class ProcessVectorDocument implements ShouldBeUnique, ShouldQueue
 
     protected function resolveSplitter(ChunkingStrategy $strategy): TextSplitterInterface
     {
+        $customSplitters = config('vector-search.splitters', []);
+        $strategyValue = $strategy->value;
+
+        if (is_array($customSplitters) && isset($customSplitters[$strategyValue])) {
+            $class = $customSplitters[$strategyValue];
+
+            if (is_string($class) && class_exists($class)) {
+                $splitter = app($class);
+
+                if ($splitter instanceof TextSplitterInterface) {
+                    return $splitter;
+                }
+            }
+
+            throw new InvalidArgumentException("Splitter [{$class}] must implement TextSplitterInterface.");
+        }
+
         return match ($strategy) {
             ChunkingStrategy::RECURSIVE_CHARACTER => new RecursiveCharacterSplitter,
             ChunkingStrategy::TOKEN_LIMIT => new TokenLimitSplitter,

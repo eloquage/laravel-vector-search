@@ -14,6 +14,8 @@ class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
     public function __construct(
         protected string $apiKey,
         protected string $model,
+        protected int $batchSize = 100,
+        protected int $timeout = 60,
     ) {}
 
     /**
@@ -24,6 +26,14 @@ class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
         $embeddings = $this->embedBatch([$text]);
 
         return $embeddings[0] ?? [];
+    }
+
+    /**
+     * @return array<float>
+     */
+    public function embedQuery(string $text): array
+    {
+        return $this->embed($text);
     }
 
     /**
@@ -40,9 +50,30 @@ class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
             throw new RuntimeException('OpenAI API key is not configured.');
         }
 
+        $results = [];
+
+        foreach (array_chunk($texts, max(1, $this->batchSize)) as $batch) {
+            $results = array_merge($results, $this->requestBatch($batch));
+        }
+
+        return $results;
+    }
+
+    public function dimensions(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * @param  array<string>  $texts
+     * @return array<array<float>>
+     */
+    protected function requestBatch(array $texts): array
+    {
         try {
             $response = Http::withToken($this->apiKey)
                 ->acceptJson()
+                ->timeout($this->timeout)
                 ->post('https://api.openai.com/v1/embeddings', [
                     'model' => $this->model,
                     'input' => $texts,

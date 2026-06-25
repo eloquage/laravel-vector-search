@@ -30,7 +30,7 @@ class VectorSearchIndex
 
         $embedder = $this->embeddings->driver($this->index->embedding_provider->value);
         $driver = $this->drivers->driver($this->index->driver->value);
-        $vector = $embedder->embed($query);
+        $vector = $embedder->embedQuery($query);
 
         return $driver->search($this->index, $vector, $limit);
     }

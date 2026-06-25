@@ -44,7 +44,8 @@
         "meilisearch/meilisearch-php": "Required when using the Meilisearch vector driver (^1.0).",
         "laravel/scout": "Required to use the SearchableVector trait and VectorSearchEngine (^11.0).",
         "eloquage/filament-vector-search": "Filament v5 admin plugin with search dashboard.",
-        "eloquage/laravel-vector-search-ai": "Laravel AI SDK and MCP integrations."
+        "eloquage/laravel-vector-search-ai": "Laravel AI SDK and MCP integrations.",
+        "eloquage/laravel-document-archive-vector": "Document archive semantic and keyword search bridge."
     },
     "autoload": {
         "psr-4": {

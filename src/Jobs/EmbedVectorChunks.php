@@ -16,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class EmbedVectorChunks implements ShouldBeUnique, ShouldQueue
@@ -48,6 +49,7 @@ class EmbedVectorChunks implements ShouldBeUnique, ShouldQueue
             $driver = $drivers->driver($index->driver->value);
 
             $chunks = $this->document->chunks()->orderBy('chunk_index')->get();
+
             if ($chunks->isEmpty()) {
                 $this->document->update(['status' => DocumentStatus::COMPLETED]);
                 event(new VectorDocumentIndexed($this->document));
@@ -56,14 +58,25 @@ class EmbedVectorChunks implements ShouldBeUnique, ShouldQueue
             }
 
             $texts = $chunks->pluck('content')->toArray();
-
             $vectors = $embedder->embedBatch($texts);
 
-            foreach ($chunks as $i => $chunk) {
-                $chunk->update(['embedding' => $vectors[$i] ?? null]);
-
-                $driver->upsert($chunk);
+            if (count($vectors) !== $chunks->count()) {
+                throw new \RuntimeException('Embedding batch returned an unexpected number of vectors.');
             }
+
+            DB::transaction(function () use ($chunks, $vectors, $driver): void {
+                foreach ($chunks as $i => $chunk) {
+                    $embedding = $vectors[$i] ?? null;
+
+                    if ($embedding === null || $embedding === []) {
+                        throw new \RuntimeException('Embedding batch returned an empty vector.');
+                    }
+
+                    $chunk->update(['embedding' => $embedding]);
+                }
+
+                $driver->upsertBatch($chunks->fresh());
+            });
 
             $this->document->update(['status' => DocumentStatus::COMPLETED]);
 

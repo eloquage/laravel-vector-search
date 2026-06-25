@@ -7,6 +7,7 @@ namespace Eloquage\LaravelVectorSearch\Drivers;
 use Eloquage\LaravelVectorSearch\Contracts\VectorDriverInterface;
 use Eloquage\LaravelVectorSearch\Models\VectorChunk;
 use Eloquage\LaravelVectorSearch\Models\VectorIndex;
+use Eloquage\LaravelVectorSearch\Support\CosineSimilarity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +32,13 @@ class PgVectorDriver implements VectorDriverInterface
         }
 
         $chunk->save();
+    }
+
+    public function upsertBatch(Collection $chunks): void
+    {
+        foreach ($chunks as $chunk) {
+            $this->upsert($chunk);
+        }
     }
 
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection
@@ -99,33 +107,9 @@ class PgVectorDriver implements VectorDriverInterface
     {
         return $chunks
             ->filter(fn (VectorChunk $chunk): bool => is_array($chunk->embedding) && $chunk->embedding !== [])
-            ->sortBy(fn (VectorChunk $chunk): float => $this->cosineDistance($vector, $chunk->embedding))
+            ->sortBy(fn (VectorChunk $chunk): float => CosineSimilarity::distance($vector, $chunk->embedding))
             ->take($limit)
             ->values();
-    }
-
-    /**
-     * @param  array<float>  $left
-     * @param  array<float>  $right
-     */
-    protected function cosineDistance(array $left, array $right): float
-    {
-        $dot = 0.0;
-        $leftMagnitude = 0.0;
-        $rightMagnitude = 0.0;
-        $length = min(count($left), count($right));
-
-        for ($i = 0; $i < $length; $i++) {
-            $dot += $left[$i] * $right[$i];
-            $leftMagnitude += $left[$i] ** 2;
-            $rightMagnitude += $right[$i] ** 2;
-        }
-
-        if ($leftMagnitude === 0.0 || $rightMagnitude === 0.0) {
-            return 1.0;
-        }
-
-        return 1 - ($dot / (sqrt($leftMagnitude) * sqrt($rightMagnitude)));
     }
 
     public function delete(VectorChunk $chunk): void

@@ -28,4 +28,25 @@ class VectorIndexFactory extends Factory
             'chunk_overlap' => 200,
         ];
     }
+
+    public function meilisearch(): static
+    {
+        return $this->state(fn (): array => [
+            'driver' => IndexDriver::MEILISEARCH,
+        ]);
+    }
+
+    public function pinecone(): static
+    {
+        return $this->state(fn (): array => [
+            'driver' => IndexDriver::PINECONE,
+        ]);
+    }
+
+    public function nullProvider(): static
+    {
+        return $this->state(fn (): array => [
+            'embedding_provider' => EmbeddingProvider::NULL_PROVIDER,
+        ]);
+    }
 }

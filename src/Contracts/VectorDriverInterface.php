@@ -16,8 +16,18 @@ interface VectorDriverInterface
     public function upsert(VectorChunk $chunk): void;
 
     /**
+     * Upsert multiple chunks in a single driver operation when supported.
+     *
+     * @param  Collection<int, VectorChunk>  $chunks
+     */
+    public function upsertBatch(Collection $chunks): void;
+
+    /**
      * Search the index for the closest chunks to the given vector.
      * Returns a collection of VectorChunk models.
+     *
+     * @param  array<float>  $vector
+     * @return Collection<int, VectorChunk>
      */
     public function search(VectorIndex $index, array $vector, int $limit = 5): Collection;
 

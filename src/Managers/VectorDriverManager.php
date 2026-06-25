@@ -7,9 +7,9 @@ namespace Eloquage\LaravelVectorSearch\Managers;
 use Eloquage\LaravelVectorSearch\Contracts\VectorDriverInterface;
 use Eloquage\LaravelVectorSearch\Drivers\MeilisearchDriver;
 use Eloquage\LaravelVectorSearch\Drivers\PgVectorDriver;
+use Eloquage\LaravelVectorSearch\Drivers\PineconeDriver;
 use Eloquage\LaravelVectorSearch\Enums\IndexDriver;
 use Illuminate\Support\Manager;
-use InvalidArgumentException;
 use Meilisearch\Client;
 use RuntimeException;
 
@@ -53,6 +53,12 @@ class VectorDriverManager extends Manager
 
     public function createPineconeDriver(): VectorDriverInterface
     {
-        throw new InvalidArgumentException('The Pinecone driver is not implemented yet.');
+        $config = config('vector-search.drivers.pinecone', []);
+
+        return new PineconeDriver(
+            apiKey: (string) ($config['api_key'] ?? ''),
+            indexHost: (string) ($config['index_host'] ?? ''),
+            timeout: (int) config('vector-search.embedding_timeout', 60),
+        );
     }
 }
