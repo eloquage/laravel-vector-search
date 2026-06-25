@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Eloquage\LaravelVectorSearch\Models;
 
 use Eloquage\LaravelVectorSearch\Enums\DocumentStatus;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read VectorIndex|null $vectorIndex
- * @property-read \Illuminate\Database\Eloquent\Collection<int, VectorChunk> $chunks
+ * @property-read Collection<int, VectorChunk> $chunks
  */
 class VectorDocument extends Model
 {
