@@ -1,5 +1,7 @@
 # Laravel Vector Search
 
+![Laravel Vector Search package banner](art/banner.png)
+
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/eloquage/laravel-vector-search.svg?style=flat-square)](https://packagist.org/packages/eloquage/laravel-vector-search)
 [![GitHub Tests Action Status](https://github.com/eloquage/laravel-vector-search/actions/workflows/run-tests.yml/badge.svg)](https://github.com/eloquage/laravel-vector-search/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://github.com/eloquage/laravel-vector-search/actions/workflows/fix-php-code-style-issues.yml/badge.svg)](https://github.com/eloquage/laravel-vector-search/actions?query=workflow%3A%22Fix+PHP+code+style+issues%22+branch%3Amain)
@@ -66,14 +68,14 @@ composer require eloquage/laravel-vector-search
 Publish and run migrations:
 
 ```bash
-php artisan vendor:publish --tag=laravel-vector-search-migrations
+php artisan vendor:publish --provider="Eloquage\LaravelVectorSearch\LaravelVectorSearchServiceProvider"
 php artisan migrate
 ```
 
 Publish config (optional):
 
 ```bash
-php artisan vendor:publish --tag=laravel-vector-search-config
+php artisan vendor:publish --provider="Eloquage\LaravelVectorSearch\LaravelVectorSearchServiceProvider"
 ```
 
 Configure `.env` for your driver and embedding provider:
