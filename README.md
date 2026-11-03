@@ -9,13 +9,7 @@
 
 Semantic vector search for Laravel: chunk documents, generate embeddings, store vectors, and query by meaning. Ships with PostgreSQL/pgvector and Meilisearch drivers, pluggable embedding providers, queued indexing, and optional Laravel Scout integration.
 
-Optional companion packages:
-
-| Package                                                                                                   | Purpose                                                      |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [`eloquage/filament-vector-search`](https://github.com/eloquage/filament-vector-search)                   | Filament v5 admin UI — indexes, documents, search playground |
-| [`eloquage/laravel-vector-search-ai`](https://github.com/eloquage/laravel-vector-search-ai)               | Laravel AI SDK tools, agents, and MCP server                 |
-| [`eloquage/laravel-document-archive-vector`](https://github.com/eloquage/laravel-document-archive-vector) | Document archive semantic + keyword search bridge            |
+The optional [`eloquage/filament-vector-search`](https://github.com/eloquage/filament-vector-search) package adds a Filament v5 admin UI for indexes, documents, and search.
 
 ## Architecture
 
@@ -197,16 +191,9 @@ VectorIndex::query()->create([
 
 Each index stores `embedding_provider`, `embedding_model`, and optional `dimensions`. At search time, `VectorSearchIndex` uses `embedQuery()` for query vectors (Cohere uses `search_query` input type).
 
-## Index naming across packages
+## Index names
 
-| Package                      | Config key            | Default            |
-| ---------------------------- | --------------------- | ------------------ |
-| laravel-vector-search        | `default_index`       | `default`          |
-| laravel-document-archive     | `vector_index`        | `document-archive` |
-| laravel-document-archive-mcp | `vector_index`        | `document-archive` |
-| Scout (`SearchableVector`)   | `scout.default_index` | —                  |
-
-Use the same index name across archive packages so MCP tools, archive indexing, and search resolve the same `VectorIndex` record.
+Choose an index name in `config/vector-search.php`. An application can reuse that name in its own integrations.
 
 ## Events and archive integration
 
@@ -215,7 +202,7 @@ Use the same index name across archive packages so MCP tools, archive indexing, 
 | `VectorDocumentIndexed` | `EmbedVectorChunks` completes successfully |
 | `VectorDocumentFailed`  | Chunking or embedding fails                |
 
-Listen to these events in host apps or `eloquage/laravel-document-archive-vector` to update manifest status or trigger downstream workflows. Prefer the vector index search path over legacy chunk-model cosine fallback in `DocumentArchiveSearchService`.
+Host applications can listen to these events to update related records or trigger downstream workflows.
 
 ## Indexing: queued vs sync
 
@@ -308,7 +295,7 @@ $chunks = LaravelVectorSearch::forIndex($index)
 
 ## End-to-end example
 
-This mirrors how [`eloquage/laravel-document-archive-vector`](https://github.com/eloquage/laravel-document-archive-vector) uses the package via `DocumentArchiveSearchService`: a named index, documents with collection metadata, semantic search through the facade, and optional Meilisearch keyword search.
+This example creates a named index, stores documents with collection metadata, and runs semantic and optional Meilisearch keyword searches.
 
 ```php
 use Eloquage\LaravelVectorSearch\Enums\ChunkingStrategy;
@@ -348,7 +335,7 @@ $document = VectorDocument::query()->create([
 
 ProcessVectorDocument::dispatchSync($document); // use indexDocument() + queue worker in production
 
-// 3. Semantic search (same entry point as DocumentArchiveSearchService)
+// 3. Semantic search
 $chunks = LaravelVectorSearch::forIndex('document-archive')->search('witness statement', limit: 10);
 
 $results = $chunks
@@ -366,7 +353,7 @@ if ($index->driver === IndexDriver::MEILISEARCH) {
 }
 ```
 
-For empty-index handling, embedding credential checks, and collection filtering, see `DocumentArchiveSearchService` in `eloquage/laravel-document-archive-vector`.
+Use your configured embedding provider and metadata filters when indexing and querying documents.
 
 ## Laravel Scout integration
 
@@ -426,14 +413,6 @@ composer require eloquage/filament-vector-search
 ```
 
 Registers a dashboard, index/document resources, search playground, and pipeline widgets. See the [Filament plugin README](https://github.com/eloquage/filament-vector-search).
-
-### Laravel AI SDK + MCP (`eloquage/laravel-vector-search-ai`)
-
-```bash
-composer require eloquage/laravel-vector-search-ai
-```
-
-Provides `KnowledgeBaseSearchTool`, `KnowledgeBaseAgent`, `AiSdkEmbeddingProvider`, and an MCP server. See the [AI package README](https://github.com/eloquage/laravel-vector-search-ai).
 
 ## Testing
 
